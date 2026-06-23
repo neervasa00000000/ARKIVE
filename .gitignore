@@ -9,3 +9,4 @@ frontend/dist/
 .DS_Store
 *.log
 frontend/src/config/arweave-deployment.json
+cursor_arkive_mvp_build_specifications.md
