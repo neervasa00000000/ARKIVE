@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.local
+**/.env
+contracts/cache/
+contracts/artifacts/
+frontend/dist/
+.DS_Store
+*.log
+frontend/src/config/arweave-deployment.json
