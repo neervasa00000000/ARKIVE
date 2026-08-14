@@ -15,7 +15,7 @@ Web3 dApp MVP on **Base Sepolia** (chain ID `84532`).
 
 - **Wallet:** MetaMask / RainbowKit (WalletConnect optional)
 - **Encryption:** Lit Protocol (primary) + wallet signature derivation (fallback)
-- **Permanent storage:** Arweave via Turbo SDK (`@ardrive/turbo-sdk`)
+- **Permanent storage:** Arweave via Turbo SDK (`@ardrive/turbo-sdk`) — **user-paid** from connected wallet
 
 ## Repository Layout
 
@@ -66,9 +66,11 @@ BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
 
 ```
 VITE_WALLETCONNECT_PROJECT_ID=...   # optional
-VITE_ARWEAVE_KEY={"kty":"RSA",...}  # required for uploads
+# User uploads: wallet-paid Turbo (no Arweave key in browser bundle)
 VITE_ARWEAVE_APP_TX=...             # after permanent Arweave deploy
 VITE_ARWEAVE_RECOVERY_TX=...
+# Node deploy script only (npm run deploy:arweave) — never VITE_ prefix:
+# ARWEAVE_DEPLOY_KEY={"kty":"RSA",...}
 VITE_BASE_PATH=/                    # optional; use /subdir/ for subpath hosting
 ```
 
@@ -134,5 +136,5 @@ On Base Sepolia (84532):
 
 - **Wallet fallback message:** Immutable — changing breaks existing vault files
 - **v1 vs v2 vault:** Lit-only v1 files won't decrypt with v2-only code paths
-- **Build-time secrets:** `VITE_ARWEAVE_KEY` is embedded in JS bundle at build time
+- **Upload funding:** User wallet via Turbo (ETH on Base or AR via ArConnect). Deploy key `ARWEAVE_DEPLOY_KEY` is Node-only for `deploy:arweave`.
 - **Subpath hosting:** Set `VITE_BASE_PATH` in `.env` before `npm run build`

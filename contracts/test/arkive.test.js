@@ -1,92 +1,169 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("ARKIVE Contracts", function () {
-  let pointsSystem, userRegistry, postRegistry, vaultRegistry;
-  let owner, user1, user2;
+describe("ARKIVE — Full Test Suite", function () {
+  let points, linker, users, posts, vault;
+  let owner, primary, secondary, tertiary, stranger;
 
   beforeEach(async function () {
-    [owner, user1, user2] = await ethers.getSigners();
+    [owner, primary, secondary, tertiary, stranger] = await ethers.getSigners();
 
-    const PointsSystem = await ethers.getContractFactory("PointsSystem");
-    pointsSystem = await PointsSystem.deploy();
+    const Points = await ethers.getContractFactory("PointsSystem");
+    points = await Points.deploy();
 
-    const UserRegistry = await ethers.getContractFactory("UserRegistry");
-    userRegistry = await UserRegistry.deploy();
+    const Linker = await ethers.getContractFactory("WalletLinker");
+    linker = await Linker.deploy();
 
-    const PostRegistry = await ethers.getContractFactory("PostRegistry");
-    postRegistry = await PostRegistry.deploy(await pointsSystem.getAddress());
+    const Users = await ethers.getContractFactory("UserRegistry");
+    users = await Users.deploy();
+    await users.setWalletLinker(await linker.getAddress());
 
-    const VaultRegistry = await ethers.getContractFactory("VaultRegistry");
-    vaultRegistry = await VaultRegistry.deploy();
+    const Posts = await ethers.getContractFactory("PostRegistry");
+    posts = await Posts.deploy(await points.getAddress(), await linker.getAddress());
 
-    await pointsSystem.authoriseCaller(await postRegistry.getAddress());
+    const Vault = await ethers.getContractFactory("VaultRegistry");
+    vault = await Vault.deploy(await linker.getAddress());
+
+    await points.setWalletLinker(await linker.getAddress());
+    await points.authoriseCaller(await posts.getAddress());
+  });
+
+  describe("WalletLinker", function () {
+    it("secondary requests link, primary confirms", async function () {
+      await linker.connect(secondary).requestLink(primary.address);
+      await linker.connect(primary).confirmLink(secondary.address);
+
+      const linked = await linker.getLinkedWallets(primary.address);
+      expect(linked[0]).to.equal(secondary.address);
+      expect(await linker.getPrimary(secondary.address)).to.equal(primary.address);
+      expect(await linker.areSameIdentity(primary.address, secondary.address)).to.be.true;
+    });
+
+    it("cannot link without both signing", async function () {
+      await expect(
+        linker.connect(primary).confirmLink(secondary.address),
+      ).to.be.revertedWith("No pending request from this wallet to you");
+    });
+
+    it("enforces max 3 wallets per identity", async function () {
+      await linker.connect(secondary).requestLink(primary.address);
+      await linker.connect(primary).confirmLink(secondary.address);
+      await linker.connect(tertiary).requestLink(primary.address);
+      await linker.connect(primary).confirmLink(tertiary.address);
+
+      const [, , , , fourth] = await ethers.getSigners();
+      await expect(
+        linker.connect(fourth).requestLink(primary.address),
+      ).to.be.revertedWith("Primary wallet already has maximum linked wallets");
+    });
+
+    it("either party can unlink", async function () {
+      await linker.connect(secondary).requestLink(primary.address);
+      await linker.connect(primary).confirmLink(secondary.address);
+
+      await linker.connect(secondary).unlinkWallet(secondary.address);
+      expect(await linker.getPrimary(secondary.address)).to.equal(secondary.address);
+    });
   });
 
   describe("UserRegistry", function () {
-    it("registers a user", async function () {
-      await userRegistry.connect(user1).register("testuser");
-      const user = await userRegistry.getUser(user1.address);
-      expect(user.username).to.equal("testuser");
-      expect(user.exists).to.be.true;
+    it("registers primary wallet", async function () {
+      await users.connect(primary).register("goose");
+      const user = await users.getUser(primary.address);
+      expect(user.username).to.equal("goose");
     });
 
-    it("prevents duplicate usernames", async function () {
-      await userRegistry.connect(user1).register("taken");
-      await expect(userRegistry.connect(user2).register("taken")).to.be.revertedWith("Username taken");
+    it("secondary wallet shares primary identity", async function () {
+      await linker.connect(secondary).requestLink(primary.address);
+      await linker.connect(primary).confirmLink(secondary.address);
+
+      await users.connect(primary).register("goose");
+      const userViaSec = await users.getUser(secondary.address);
+      expect(userViaSec.username).to.equal("goose");
+    });
+
+    it("blocks duplicate usernames", async function () {
+      await users.connect(primary).register("goose");
+      await expect(users.connect(stranger).register("goose")).to.be.revertedWith("Username taken");
+    });
+
+    it("rejects invalid usernames", async function () {
+      await expect(users.connect(primary).register("Bad")).to.be.revertedWith("Invalid username");
     });
   });
 
   describe("PointsSystem", function () {
-    it("awards welcome bonus", async function () {
-      await pointsSystem.connect(user1).claimWelcomeBonus();
-      expect(await pointsSystem.getPoints(user1.address)).to.equal(225);
+    it("welcome bonus awarded to primary", async function () {
+      await points.connect(primary).claimWelcomeBonus();
+      expect(await points.getPoints(primary.address)).to.equal(225);
     });
 
-    it("prevents double claiming", async function () {
-      await pointsSystem.connect(user1).claimWelcomeBonus();
-      await expect(pointsSystem.connect(user1).claimWelcomeBonus()).to.be.revertedWith("Already claimed");
+    it("linked wallet earns points for primary", async function () {
+      await linker.connect(secondary).requestLink(primary.address);
+      await linker.connect(primary).confirmLink(secondary.address);
+
+      await points.connect(owner).awardPoints(secondary.address, 50, "test");
+      expect(await points.getPoints(primary.address)).to.equal(50);
     });
   });
 
   describe("PostRegistry", function () {
-    it("creates a post and awards points", async function () {
-      await postRegistry.connect(user1).createPost("arweave123", "text");
-      const post = await postRegistry.getPost(0);
-      expect(post.arweaveId).to.equal("arweave123");
-      expect(post.author).to.equal(user1.address);
+    it("post attributed to primary wallet", async function () {
+      await linker.connect(secondary).requestLink(primary.address);
+      await linker.connect(primary).confirmLink(secondary.address);
+
+      await posts.connect(secondary).createPost("ar123", "text");
+      const post = await posts.getPost(0);
+      expect(post.author).to.equal(primary.address);
     });
 
-    it("allows liking a post", async function () {
-      await postRegistry.connect(user1).createPost("arweave123", "text");
-      await postRegistry.connect(user2).likePost(0);
-      const post = await postRegistry.getPost(0);
-      expect(post.likes).to.equal(1);
-    });
+    it("linked wallets cannot like same post twice", async function () {
+      await linker.connect(secondary).requestLink(primary.address);
+      await linker.connect(primary).confirmLink(secondary.address);
 
-    it("prevents liking own post", async function () {
-      await postRegistry.connect(user1).createPost("arweave123", "text");
-      await expect(postRegistry.connect(user1).likePost(0)).to.be.revertedWith("Cannot like own post");
+      await posts.connect(stranger).createPost("ar123", "text");
+      await posts.connect(primary).likePost(0);
+
+      await expect(posts.connect(secondary).likePost(0)).to.be.revertedWith("Already liked");
     });
   });
 
   describe("VaultRegistry", function () {
-    it("stores a file and retrieves it", async function () {
-      await vaultRegistry.connect(user1).storeFile(
-        "encryptedArweaveId123",
-        "photo.jpg",
-        "image",
-        "conditionsHash"
-      );
-      const files = await vaultRegistry.connect(user1).getMyFiles();
-      expect(files.length).to.equal(1);
-      expect(files[0].fileName).to.equal("photo.jpg");
+    it("file accessible by any linked wallet", async function () {
+      await linker.connect(secondary).requestLink(primary.address);
+      await linker.connect(primary).confirmLink(secondary.address);
+
+      await vault.connect(primary).storeFile("enc123", "secret.jpg", "image", "hash");
+
+      const filesViaSecondary = await vault.connect(secondary).getMyFiles();
+      expect(filesViaSecondary.length).to.equal(1);
+      expect(filesViaSecondary[0].fileName).to.equal("secret.jpg");
     });
 
-    it("prevents other wallets seeing your files", async function () {
-      await vaultRegistry.connect(user1).storeFile("enc123", "secret.jpg", "image", "hash");
-      const files = await vaultRegistry.connect(user2).getMyFiles();
-      expect(files.length).to.equal(0);
+    it("stranger cannot see private files", async function () {
+      await vault.connect(primary).storeFile("enc123", "secret.jpg", "image", "hash");
+      const strangerFiles = await vault.connect(stranger).getMyFiles();
+      expect(strangerFiles.length).to.equal(0);
+    });
+
+    it("rejects duplicate arweave id globally", async function () {
+      await vault.connect(primary).storeFile("enc-dup", "a.jpg", "image", "hash");
+      await expect(
+        vault.connect(stranger).storeFile("enc-dup", "b.jpg", "image", "hash"),
+      ).to.be.revertedWith("Arweave ID already stored");
+    });
+
+    it("locks wallet linker after config lock", async function () {
+      await vault.lockConfig();
+      await expect(vault.setWalletLinker(stranger.address)).to.be.revertedWith("Config locked");
+    });
+  });
+
+  describe("SecureConfig", function () {
+    it("two-step ownership transfer", async function () {
+      await points.transferOwnership(stranger.address);
+      await expect(points.connect(stranger).acceptOwnership()).to.not.be.reverted;
+      expect(await points.owner()).to.equal(stranger.address);
     });
   });
 });

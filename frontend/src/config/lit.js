@@ -18,6 +18,10 @@ export async function getLitClient() {
 }
 
 export function buildAccessConditions(walletAddress) {
+  const addr = walletAddress?.toLowerCase()
+  if (!addr || !/^0x[a-f0-9]{40}$/.test(addr)) {
+    throw new Error('INVALID_WALLET_ADDRESS')
+  }
   return [
     {
       contractAddress: '',
@@ -27,7 +31,7 @@ export function buildAccessConditions(walletAddress) {
       parameters: [':userAddress'],
       returnValueTest: {
         comparator: '=',
-        value: walletAddress.toLowerCase(),
+        value: addr,
       },
     },
   ]

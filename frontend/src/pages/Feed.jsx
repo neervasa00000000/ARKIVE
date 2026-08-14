@@ -1,66 +1,151 @@
 import { useState, useEffect } from 'react'
-import { useReadContract } from 'wagmi'
+import { useReadContract, useWalletClient } from 'wagmi'
 import { Plus, FileText } from 'lucide-react'
 import { CONTRACT_ADDRESSES } from '../config/contracts'
 import PostRegistryABI from '../contracts/PostRegistry.json'
 import PostCard from '../components/PostCard'
 import CreatePostModal from '../components/CreatePostModal'
+import PageHeader from '../components/PageHeader'
+import EmptyState from '../components/EmptyState'
+import { isDemoMode } from '../config/demo'
+import { DEMO_FEED_POSTS } from '../demo/demoFeed'
+import { warmTurboForWallet, prepareFeedUpload } from '../lib/turboUpload'
 
-export default function Feed() {
+const ZERO = '0x0000000000000000000000000000000000000000'
+
+function FeedContent({ posts, contractsReady, onPost, onLike, onOpenCreate }) {
+  return (
+    <>
+      <PageHeader
+        title="Feed"
+        description={
+          isDemoMode
+            ? 'Demo posts — connect on Base Sepolia for the live feed.'
+            : 'Every post is stored permanently on Arweave.'
+        }
+        action={(
+          <button
+            type="button"
+            onClick={onOpenCreate}
+            disabled={contractsReady === false}
+            className="btn-primary btn-primary-sm disabled:opacity-40"
+          >
+            <Plus size={17} />
+            New post
+          </button>
+        )}
+      />
+
+      {contractsReady === false && (
+        <div className="callout callout-warn mb-8">
+          <p className="text-sm">Contracts not deployed yet. Deploy to Base Sepolia, then rebuild.</p>
+        </div>
+      )}
+
+      {posts.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="Nothing here yet"
+          description="Be the first to post something that stays forever."
+          action={(
+            <button type="button" onClick={onOpenCreate} className="btn-primary btn-primary-sm">
+              <Plus size={17} />
+              Create post
+            </button>
+          )}
+        />
+      ) : (
+        <div className="space-y-3">
+          {posts.map((post) => (
+            <PostCard key={post.id.toString()} post={post} onLike={onLike} />
+          ))}
+        </div>
+      )}
+
+    </>
+  )
+}
+
+function DemoFeed() {
+  const [showCreate, setShowCreate] = useState(false)
+  const posts = [...DEMO_FEED_POSTS].reverse()
+
+  return (
+    <>
+      <FeedContent
+        posts={posts}
+        onOpenCreate={() => setShowCreate(true)}
+        onLike={() => {}}
+      />
+      {showCreate && (
+        <CreatePostModal onClose={() => setShowCreate(false)} onSuccess={() => setShowCreate(false)} />
+      )}
+    </>
+  )
+}
+
+function LiveFeed() {
   const [showCreate, setShowCreate] = useState(false)
   const [posts, setPosts] = useState([])
+  const { data: walletClient } = useWalletClient()
+  const contractsReady = CONTRACT_ADDRESSES.PostRegistry !== ZERO
+
+  useEffect(() => {
+    if (!walletClient) return
+    warmTurboForWallet(walletClient)
+    prepareFeedUpload(walletClient, () => {}).catch(() => {})
+  }, [walletClient])
 
   const { data: recentPosts, refetch } = useReadContract({
     address: CONTRACT_ADDRESSES.PostRegistry,
     abi: PostRegistryABI.abi,
     functionName: 'getRecentPosts',
     args: [BigInt(0), BigInt(50)],
+    query: { enabled: contractsReady },
   })
 
   useEffect(() => {
     if (recentPosts) {
-      setPosts([...recentPosts].reverse())
+      setPosts((prev) => {
+        const chainPosts = [...recentPosts].reverse()
+        const pending = prev.filter((p) => p._pending)
+        const chainIds = new Set(chainPosts.map((p) => p.arweaveId))
+        const stillPending = pending.filter((p) => !chainIds.has(p.arweaveId))
+        return [...stillPending, ...chainPosts]
+      })
     }
   }, [recentPosts])
 
+  function handlePostSuccess(result) {
+    if (result?.optimisticPost) {
+      setPosts((prev) => {
+        if (prev.some((p) => p.arweaveId === result.optimisticPost.arweaveId)) return prev
+        return [result.optimisticPost, ...prev]
+      })
+    }
+    setShowCreate(false)
+    refetch()
+  }
+
   return (
-    <div className="max-w-2xl mx-auto">
-
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-text-primary">Feed</h1>
-          <p className="font-body text-text-secondary text-sm mt-1">
-            Every post is stored permanently on Arweave
-          </p>
-        </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 bg-cyan-400 text-base px-4 py-2.5 rounded-xl font-display font-semibold text-sm hover:bg-cyan-500 transition-colors"
-        >
-          <Plus size={18} />
-          Post
-        </button>
-      </div>
-
-      <div className="space-y-4">
-        {posts.length === 0 ? (
-          <div className="bg-card border border-border rounded-xl p-12 text-center">
-            <FileText size={32} className="text-text-muted mx-auto mb-4" />
-            <p className="font-body text-text-secondary">No posts yet. Be the first to post something permanently.</p>
-          </div>
-        ) : (
-          posts.map((post) => (
-            <PostCard key={post.id.toString()} post={post} onLike={refetch} />
-          ))
-        )}
-      </div>
-
+    <>
+      <FeedContent
+        posts={posts}
+        contractsReady={contractsReady}
+        onOpenCreate={() => setShowCreate(true)}
+        onLike={refetch}
+      />
       {showCreate && (
         <CreatePostModal
           onClose={() => setShowCreate(false)}
-          onSuccess={() => { setShowCreate(false); refetch() }}
+          onSuccess={handlePostSuccess}
         />
       )}
-    </div>
+    </>
   )
+}
+
+export default function Feed() {
+  if (isDemoMode) return <DemoFeed />
+  return <LiveFeed />
 }

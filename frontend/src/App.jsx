@@ -1,7 +1,10 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { useAccount } from 'wagmi'
+import { isDemoMode } from './config/demo'
+import { useWalletState } from './hooks/useWalletState'
 import Landing from './pages/Landing'
+import Logo from './components/Logo'
 
 const Feed = lazy(() => import('./pages/Feed'))
 const Vault = lazy(() => import('./pages/Vault'))
@@ -11,14 +14,16 @@ const Layout = lazy(() => import('./components/Layout'))
 
 function RouteLoader() {
   return (
-    <div className="min-h-screen bg-base flex items-center justify-center">
-      <p className="font-mono text-sm text-text-secondary">Loading…</p>
+    <div className="app-bg min-h-screen flex items-center justify-center">
+      <p className="font-mono text-sm text-muted animate-pulse">Loading…</p>
     </div>
   )
 }
 
 function RecoveryShell({ children }) {
-  const { isConnected } = useAccount()
+  const wallet = useWalletState()
+  const wagmi = useAccount()
+  const isConnected = isDemoMode ? wallet.isConnected : wagmi.isConnected
 
   if (isConnected) {
     return (
@@ -29,12 +34,10 @@ function RecoveryShell({ children }) {
   }
 
   return (
-    <div className="min-h-screen bg-base">
-      <div className="max-w-2xl mx-auto px-6 py-8">
-        <div className="mb-6">
-          <span className="font-display text-xl font-bold text-text-primary">
-            ARK<span className="text-cyan-400">IVE</span>
-          </span>
+    <div className="app-bg min-h-screen">
+      <div className="max-w-2xl mx-auto px-6 py-10">
+        <div className="mb-8">
+          <Logo />
         </div>
         <Suspense fallback={<RouteLoader />}>{children}</Suspense>
       </div>
@@ -43,7 +46,9 @@ function RecoveryShell({ children }) {
 }
 
 export default function App() {
-  const { isConnected } = useAccount()
+  const wallet = useWalletState()
+  const wagmi = useAccount()
+  const isConnected = isDemoMode ? wallet.isConnected : wagmi.isConnected
 
   return (
     <Routes>
