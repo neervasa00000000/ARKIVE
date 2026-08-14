@@ -53,3 +53,6 @@ ARKIVE/
 
 ## Development
 See `docs/BUILD-GUIDE.md` for setup, environment variables, and deployment.
+
+## Beta deployment
+See `DEPLOY.md` for Vercel/Netlify frontend + separate sponsor API deploy.

@@ -10,6 +10,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 import { wagmiConfig } from './config/wagmi'
 import Landing from './pages/Landing'
+import { DemoWalletProvider } from './context/DemoWalletContext'
+import { DemoVaultProvider } from './context/DemoVaultContext'
+import { assertDemoModeNotProduction, assertProductionSecrets } from './lib/security'
+
+assertDemoModeNotProduction()
+assertProductionSecrets()
 
 const App = lazy(() => import('./App'))
 
@@ -25,27 +31,34 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider
           theme={darkTheme({
-            accentColor: '#00E5FF',
-            accentColorForeground: '#0A0B0F',
-            borderRadius: 'medium',
+            accentColor: '#fafafa',
+            accentColorForeground: '#050505',
+            borderRadius: 'large',
           })}
         >
-            <BrowserRouter basename={import.meta.env.VITE_BASE_PATH || '/'}>
-            <Suspense fallback={<AppLoader />}>
-              <App />
-            </Suspense>
-            <Toaster
-              position="bottom-right"
-              toastOptions={{
-                style: {
-                  background: '#1A1D2A',
-                  color: '#E8E8F4',
-                  border: '1px solid #1E2235',
-                  fontFamily: 'Inter, sans-serif',
-                },
-              }}
-            />
-          </BrowserRouter>
+          <DemoWalletProvider>
+            <DemoVaultProvider>
+              <BrowserRouter basename={import.meta.env.VITE_BASE_PATH || '/'}>
+                <Suspense fallback={<AppLoader />}>
+                  <App />
+                </Suspense>
+                <Toaster
+                  position="bottom-right"
+                  toastOptions={{
+                    style: {
+                      background: '#141416',
+                      color: '#fafafa',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '12px',
+                      fontFamily: 'Inter, system-ui, sans-serif',
+                      fontSize: '13px',
+                      boxShadow: '0 16px 48px rgba(0,0,0,0.5)',
+                    },
+                  }}
+                />
+              </BrowserRouter>
+            </DemoVaultProvider>
+          </DemoWalletProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

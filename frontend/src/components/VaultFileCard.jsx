@@ -1,48 +1,59 @@
 import { useState } from 'react'
-import { Lock, Image, FileText, Video, File, Eye } from 'lucide-react'
+import { Image, FileText, Video, File, Eye, Trash2 } from 'lucide-react'
 import { PermanentDot } from './PermanentDot'
 import DecryptModal from './DecryptModal'
+import { useVault } from '../hooks/useVault'
+import { vaultErrorMessage } from '../lib/setupStatus'
+import toast from 'react-hot-toast'
 
 const icons = { image: Image, video: Video, document: FileText, other: File }
 
 export default function VaultFileCard({ file, onDeleted }) {
   const [showDecrypt, setShowDecrypt] = useState(false)
+  const { deleteVaultFile, loading } = useVault()
   const Icon = icons[file.fileType] || File
-
   const storedDate = new Date(Number(file.storedAt) * 1000).toLocaleDateString()
+
+  async function handleDelete() {
+    if (!window.confirm(`Remove "${file.fileName}" from your vault list?`)) return
+    try {
+      await deleteVaultFile(file.id)
+      toast.success('Removed from vault')
+      onDeleted?.()
+    } catch (error) {
+      toast.error(vaultErrorMessage(error))
+    }
+  }
 
   return (
     <>
-      <div className="bg-card border border-border rounded-xl p-4 hover:border-purple-500/30 transition-colors group">
-
-        <div className="h-12 w-12 bg-elevated border border-purple-500/20 rounded-xl flex items-center justify-center mb-4">
-          <Icon size={22} className="text-purple-400" />
+      <div className="panel-hover p-5 group">
+        <div className="h-11 w-11 rounded-xl bg-surface-2 border border-line flex items-center justify-center text-muted mb-4">
+          <Icon size={18} strokeWidth={1.5} />
         </div>
 
-        <p className="font-display text-sm font-semibold text-text-primary mb-1 truncate">
-          {file.fileName}
-        </p>
-        <p className="font-body text-text-muted text-xs mb-4">{storedDate}</p>
-
+        <p className="font-display font-medium text-ink text-sm truncate mb-1">{file.fileName}</p>
+        <p className="text-xs text-faint mb-3">{storedDate}</p>
         <PermanentDot type="vault" />
 
-        <div className="flex items-center gap-2 mt-4">
-          <button
-            onClick={() => setShowDecrypt(true)}
-            className="flex-1 flex items-center justify-center gap-2 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-lg py-2 text-xs font-medium hover:bg-purple-500/20 transition-colors"
-          >
+        <div className="flex gap-2 mt-4">
+          <button type="button" onClick={() => setShowDecrypt(true)} className="btn-secondary flex-1 py-2 text-xs">
             <Eye size={14} />
             Open
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={loading}
+            className="p-2 rounded-xl border border-line text-faint hover:text-ink hover:border-line-strong transition-colors disabled:opacity-40"
+            title="Remove entry"
+          >
+            <Trash2 size={14} />
           </button>
         </div>
       </div>
 
-      {showDecrypt && (
-        <DecryptModal
-          file={file}
-          onClose={() => setShowDecrypt(false)}
-        />
-      )}
+      {showDecrypt && <DecryptModal file={file} onClose={() => setShowDecrypt(false)} />}
     </>
   )
 }

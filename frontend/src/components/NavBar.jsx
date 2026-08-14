@@ -1,51 +1,62 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutGrid, Lock, User, Shield } from 'lucide-react'
+import { LayoutGrid, Lock, User } from 'lucide-react'
 
-const nav = [
+const links = [
   { path: '/', label: 'Feed', icon: LayoutGrid },
   { path: '/vault', label: 'Vault', icon: Lock },
   { path: '/profile', label: 'Profile', icon: User },
-  { path: '/recover', label: 'Recovery', icon: Shield },
 ]
 
-export default function NavBar({ variant = 'desktop' }) {
+export function SidebarNav({ onNavigate }) {
   const location = useLocation()
 
-  if (variant === 'mobile') {
-    return (
-      <div className="flex items-center justify-around py-3">
-        {nav.map(({ path, label, icon: Icon }) => (
+  return (
+    <nav className="flex flex-col gap-1">
+      {links.map(({ path, label, icon: Icon }) => {
+        const active = location.pathname === path
+        return (
           <Link
             key={path}
             to={path}
-            className={`flex flex-col items-center gap-1 px-4 py-1 ${
-              location.pathname === path ? 'text-cyan-400' : 'text-text-secondary'
-            }`}
+            onClick={onNavigate}
+            className={`sidebar-link ${active ? 'sidebar-link-active' : ''}`}
           >
-            <Icon size={20} />
-            <span className="text-xs">{label}</span>
+            <Icon size={18} strokeWidth={active ? 2 : 1.5} />
+            {label}
           </Link>
-        ))}
-      </div>
-    )
-  }
-
-  return (
-    <div className="hidden md:flex items-center gap-1">
-      {nav.map(({ path, label, icon: Icon }) => (
-        <Link
-          key={path}
-          to={path}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            location.pathname === path
-              ? 'bg-elevated text-text-primary'
-              : 'text-text-secondary hover:text-text-primary hover:bg-card'
-          }`}
-        >
-          <Icon size={16} />
-          {label}
-        </Link>
-      ))}
-    </div>
+        )
+      })}
+    </nav>
   )
 }
+
+export function MobileNav() {
+  const location = useLocation()
+
+  return (
+    <nav className="flex items-center justify-around px-2 py-2">
+      {links.map(({ path, label, icon: Icon }) => {
+        const active = location.pathname === path
+        return (
+          <Link
+            key={path}
+            to={path}
+            className={`flex flex-col items-center gap-1 px-5 py-2 rounded-xl text-[11px] font-medium transition-colors ${
+              active ? 'text-ink' : 'text-faint'
+            }`}
+          >
+            <Icon size={20} strokeWidth={active ? 2 : 1.5} />
+            {label}
+          </Link>
+        )
+      })}
+    </nav>
+  )
+}
+
+/* Keep export for Layout compat */
+export function ProfileNavLink() {
+  return null
+}
+
+export default SidebarNav

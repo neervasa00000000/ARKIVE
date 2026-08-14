@@ -1,73 +1,84 @@
 import WalletButton from '../components/WalletButton'
-import { hasWalletConnectCloudId } from '../config/wagmi'
+import Logo from '../components/Logo'
+import { isDemoMode } from '../config/demo'
+import { Lock, Globe, Shield } from 'lucide-react'
+
+const features = [
+  {
+    icon: Globe,
+    title: 'Permanent',
+    desc: 'Every byte lives on Arweave. No server can delete it.',
+  },
+  {
+    icon: Shield,
+    title: 'Encrypted',
+    desc: 'Sealed on your device before it ever leaves your browser.',
+  },
+  {
+    icon: Lock,
+    title: 'Wallet-gated',
+    desc: 'Only your signature opens the vault. Nobody else.',
+  },
+]
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-base flex flex-col items-center justify-center px-6">
+    <div className="app-bg min-h-screen flex flex-col">
+      <header className="px-6 sm:px-10 py-6 max-w-6xl mx-auto w-full">
+        <Logo />
+      </header>
 
-      <div className="mb-16 text-center">
-        <h1 className="font-display text-6xl font-bold tracking-tight text-text-primary mb-2">
-          ARK<span className="text-cyan-400">IVE</span>
-        </h1>
-        <p className="font-mono text-xs text-text-secondary tracking-widest uppercase">
-          permanent. encrypted. yours.
-        </p>
-      </div>
+      <main className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-14 lg:gap-20 px-6 sm:px-10 pb-24 max-w-6xl mx-auto w-full">
+        <div className="flex-1 text-center lg:text-left max-w-xl">
+          <h1 className="font-display text-[2.75rem] sm:text-5xl lg:text-[3.5rem] font-semibold text-ink leading-[1.08] tracking-tight mb-6">
+            Upload once.
+            <br />
+            <span className="text-muted">Keep forever.</span>
+          </h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl w-full mb-16">
-        <div className="bg-card border border-border rounded-xl p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-50" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400" />
-            </span>
-            <span className="font-display text-sm font-semibold text-cyan-400 uppercase tracking-wide">
-              The Feed
-            </span>
-          </div>
-          <p className="font-body text-text-secondary text-sm leading-relaxed">
-            Post anything. Text or images. Stored permanently on Arweave and registered on the blockchain. Nobody can delete it. Not even us.
+          <p className="text-muted text-lg sm:text-xl leading-relaxed mb-10 max-w-md mx-auto lg:mx-0">
+            A wallet-gated vault on Arweave. Seal files, post to a permanent feed — only you hold the keys.
           </p>
+
+          <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start">
+            <WalletButton label={isDemoMode ? 'Try demo' : 'Connect wallet'} />
+            <a href="#how" className="btn-ghost text-sm">
+              How it works
+            </a>
+          </div>
+
+          {isDemoMode && (
+            <p className="mt-6 font-mono text-xs text-faint">
+              Demo mode — set VITE_DEMO_MODE=false for on-chain
+            </p>
+          )}
         </div>
 
-        <div className="bg-card border border-border rounded-xl p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-50" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500" />
-            </span>
-            <span className="font-display text-sm font-semibold text-purple-400 uppercase tracking-wide">
-              The Vault
-            </span>
+        <div id="how" className="flex-1 w-full max-w-md lg:max-w-lg">
+          <div className="panel p-1">
+            {features.map(({ icon: Icon, title, desc }, i) => (
+              <div
+                key={title}
+                className={`flex gap-4 p-5 rounded-2xl transition-colors ${
+                  i < features.length - 1 ? 'border-b border-line' : ''
+                }`}
+              >
+                <div className="h-10 w-10 rounded-xl bg-surface-2 border border-line flex items-center justify-center shrink-0">
+                  <Icon size={18} className="text-muted" strokeWidth={1.5} />
+                </div>
+                <div>
+                  <p className="font-display font-medium text-ink text-sm mb-1">{title}</p>
+                  <p className="text-muted text-sm leading-relaxed">{desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
-          <p className="font-body text-text-secondary text-sm leading-relaxed">
-            Store private files encrypted with your wallet. Only your signature can decrypt them. Files survive even if this app disappears.
+
+          <p className="text-center lg:text-left text-faint text-xs font-mono mt-5">
+            Base · Arweave · wallet-derived encryption
           </p>
         </div>
-      </div>
-
-      <WalletButton label="Connect wallet to enter" />
-
-      {!hasWalletConnectCloudId && (
-        <p className="mt-4 font-mono text-xs text-text-secondary text-center max-w-md">
-          Browser extension wallets work now. For WalletConnect mobile wallets, add{' '}
-          <code className="text-cyan-400">VITE_WALLETCONNECT_PROJECT_ID</code> to{' '}
-          <code className="text-cyan-400">arkive/frontend/.env</code> from{' '}
-          <a
-            href="https://cloud.walletconnect.com"
-            className="text-cyan-400 hover:underline"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            WalletConnect Cloud
-          </a>
-          .
-        </p>
-      )}
-
-      <p className="mt-8 font-mono text-xs text-text-muted text-center max-w-sm">
-        Testnet build on Base Sepolia. Your wallet is your identity. Your seed phrase is your key to everything you store here.
-      </p>
+      </main>
     </div>
   )
 }

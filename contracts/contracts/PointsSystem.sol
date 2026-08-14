@@ -1,80 +1,136 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-contract PointsSystem {
+import "./SecureConfig.sol";
+
+interface IWalletLinker {
+    function getPrimary(address wallet) external view returns (address);
+}
+
+contract PointsSystem is SecureConfig {
+    IWalletLinker public walletLinker;
+
     mapping(address => uint256) public points;
     mapping(address => uint256) public totalEarned;
 
-    // Daily earning caps
     mapping(address => uint256) public lastEarnDay;
     mapping(address => uint256) public dailyEarned;
     uint256 public constant MAX_DAILY_EARN = 500;
 
-    address public owner;
-    mapping(address => bool) public authorisedCallers; // PostRegistry gets authorised
+    mapping(address => bool) public authorisedCallers;
+    mapping(address => bool) public welcomeBonusClaimed;
+
+    bool private _locked;
 
     event PointsAwarded(address indexed user, uint256 amount, string reason, uint256 newBalance);
     event PointsSpent(address indexed user, uint256 amount, string reason, uint256 newBalance);
-
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Not owner");
-        _;
-    }
 
     modifier onlyAuthorised() {
         require(authorisedCallers[msg.sender] || msg.sender == owner, "Not authorised");
         _;
     }
 
+    modifier nonReentrant() {
+        require(!_locked, "Reentrant call");
+        _locked = true;
+        _;
+        _locked = false;
+    }
+
     constructor() {
-        owner = msg.sender;
         authorisedCallers[msg.sender] = true;
+    }
+
+    function setWalletLinker(address _wl) external onlyOwner configNotLocked {
+        require(_wl != address(0), "Invalid linker");
+        walletLinker = IWalletLinker(_wl);
     }
 
     function authoriseCaller(address caller) external onlyOwner {
         authorisedCallers[caller] = true;
     }
 
-    function awardPoints(address user, uint256 amount, string calldata reason) external onlyAuthorised {
-        // Daily cap check
+    function revokeCaller(address caller) external onlyOwner {
+        require(caller != owner, "Cannot revoke owner");
+        authorisedCallers[caller] = false;
+    }
+
+    function _resolvePrimary(address wallet) internal view returns (address) {
+        if (address(walletLinker) != address(0)) {
+            return walletLinker.getPrimary(wallet);
+        }
+        return wallet;
+    }
+
+    function awardPoints(address user, uint256 amount, string calldata reason) external onlyAuthorised nonReentrant {
+        require(user != address(0), "Invalid user");
+        require(amount > 0, "Invalid amount");
+
+        address primary = _resolvePrimary(user);
+
         uint256 today = block.timestamp / 86400;
-        if (lastEarnDay[user] != today) {
-            lastEarnDay[user] = today;
-            dailyEarned[user] = 0;
+        if (lastEarnDay[primary] != today) {
+            lastEarnDay[primary] = today;
+            dailyEarned[primary] = 0;
         }
 
-        uint256 remaining = MAX_DAILY_EARN > dailyEarned[user] ? MAX_DAILY_EARN - dailyEarned[user] : 0;
-        uint256 actualAmount = amount > remaining ? remaining : amount;
+        uint256 remaining = MAX_DAILY_EARN > dailyEarned[primary]
+            ? MAX_DAILY_EARN - dailyEarned[primary]
+            : 0;
+        uint256 actual = amount > remaining ? remaining : amount;
 
-        if (actualAmount > 0) {
-            points[user] += actualAmount;
-            totalEarned[user] += actualAmount;
-            dailyEarned[user] += actualAmount;
-            emit PointsAwarded(user, actualAmount, reason, points[user]);
+        if (actual > 0) {
+            points[primary] += actual;
+            totalEarned[primary] += actual;
+            dailyEarned[primary] += actual;
+            emit PointsAwarded(primary, actual, reason, points[primary]);
         }
     }
 
-    function spendPoints(address user, uint256 amount, string calldata reason) external onlyAuthorised {
-        require(points[user] >= amount, "Insufficient points");
-        points[user] -= amount;
-        emit PointsSpent(user, amount, reason, points[user]);
+    function spendPoints(address user, uint256 amount, string calldata reason) external onlyAuthorised nonReentrant {
+        address primary = _resolvePrimary(user);
+        require(amount > 0, "Invalid amount");
+        require(points[primary] >= amount, "Insufficient points");
+        points[primary] -= amount;
+        emit PointsSpent(primary, amount, reason, points[primary]);
     }
 
-    // Welcome bonus for new users
-    function claimWelcomeBonus() external {
-        require(totalEarned[msg.sender] == 0, "Already claimed");
-        points[msg.sender] += 225;
-        totalEarned[msg.sender] += 225;
-        emit PointsAwarded(msg.sender, 225, "welcome_bonus", points[msg.sender]);
+    function claimWelcomeBonus() external nonReentrant {
+        address primary = _resolvePrimary(msg.sender);
+        require(!welcomeBonusClaimed[primary], "Welcome bonus already claimed");
+
+        uint256 today = block.timestamp / 86400;
+        if (lastEarnDay[primary] != today) {
+            lastEarnDay[primary] = today;
+            dailyEarned[primary] = 0;
+        }
+
+        uint256 bonus = 225;
+        uint256 remaining = MAX_DAILY_EARN > dailyEarned[primary]
+            ? MAX_DAILY_EARN - dailyEarned[primary]
+            : 0;
+        uint256 actual = bonus > remaining ? remaining : bonus;
+        require(actual > 0, "Daily cap reached");
+
+        welcomeBonusClaimed[primary] = true;
+        points[primary] += actual;
+        totalEarned[primary] += actual;
+        dailyEarned[primary] += actual;
+        emit PointsAwarded(primary, actual, "welcome_bonus", points[primary]);
     }
 
     function getPoints(address user) external view returns (uint256) {
-        return points[user];
+        return points[_resolvePrimary(user)];
     }
 
     function getDailyEarned(address user) external view returns (uint256) {
+        address primary = _resolvePrimary(user);
         uint256 today = block.timestamp / 86400;
-        if (lastEarnDay[user] != today) return 0;
-        return dailyEarned[user];
+        if (lastEarnDay[primary] != today) return 0;
+        return dailyEarned[primary];
+    }
+
+    function isBonusClaimed(address user) external view returns (bool) {
+        return welcomeBonusClaimed[_resolvePrimary(user)];
     }
 }

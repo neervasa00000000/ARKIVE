@@ -1,6 +1,6 @@
 // frontend/scripts/deploy-to-arweave.js
-// Run: node scripts/deploy-to-arweave.js
-// Requires: VITE_ARWEAVE_KEY set in .env
+// Run: npm run deploy:arweave
+// Requires: ARWEAVE_DEPLOY_KEY in .env (Node-only — never VITE_ prefix)
 // Deploys the /dist folder to Arweave and prints the permanent app URL
 
 import { TurboFactory } from '@ardrive/turbo-sdk'
@@ -56,11 +56,18 @@ function getAllFiles(dir, baseDir = dir) {
 async function deployFrontend() {
   console.log('=== ARKIVE Arweave Frontend Deployment ===\n')
 
-  const jwkString = process.env.VITE_ARWEAVE_KEY
+  const jwkString =
+    process.env.ARWEAVE_DEPLOY_KEY || process.env.VITE_ARWEAVE_KEY
   if (!jwkString || jwkString === '{}') {
-    console.error('ERROR: VITE_ARWEAVE_KEY not set in environment')
-    console.error('Set it in arkive/frontend/.env as a JSON string of your Arweave JWK wallet')
+    console.error('ERROR: ARWEAVE_DEPLOY_KEY not set in frontend/.env')
+    console.error('Use ARWEAVE_DEPLOY_KEY (not VITE_) — this key is only for the Node deploy script.')
+    console.error('Runtime user uploads use wallet-paid Turbo; no master key in the browser bundle.')
     process.exit(1)
+  }
+  if (process.env.VITE_ARWEAVE_KEY && !process.env.ARWEAVE_DEPLOY_KEY) {
+    console.warn(
+      'WARNING: VITE_ARWEAVE_KEY is deprecated for deploy. Rename to ARWEAVE_DEPLOY_KEY (no VITE_ prefix).',
+    )
   }
 
   const jwk = JSON.parse(jwkString)
@@ -183,12 +190,13 @@ async function deployFrontend() {
         '6. Emergency manual recovery: see /recover page in the app',
       ],
     },
-    dualEncryptionExplainer: {
+      dualEncryptionExplainer: {
       description: 'Every vault file is protected by two independent encryption paths',
       primaryPath: 'Lit Protocol — convenient, requires Lit network to be online',
-      fallbackPath: 'Wallet signature derivation — works forever with MetaMask and seed phrase',
-      derivationMessage: 'ARKIVE_VAULT_KEY_DERIVATION_V1_DO_NOT_SIGN_IN_ANY_OTHER_CONTEXT',
-      derivationProcess: 'Sign derivation message → keccak256 hash → AES-256-GCM key → decrypt walletEncryptedAesKey → decrypt encryptedFile',
+      fallbackPath: 'Wallet signature derivation — EIP-712 v2 (or legacy v1 personal_sign)',
+      derivationVersion: 'eip712-v2',
+      legacyDerivationMessage: 'ARKIVE_VAULT_KEY_DERIVATION_V1_DO_NOT_SIGN_IN_ANY_OTHER_CONTEXT',
+      derivationProcess: 'Sign typed data (v2) or legacy message → keccak256 hash → AES-256-GCM key → decrypt walletEncryptedAesKey → decrypt encryptedFile',
     },
     seedPhraseWarning: 'Your 12-word seed phrase is your master key. No seed phrase = no recovery.',
   }

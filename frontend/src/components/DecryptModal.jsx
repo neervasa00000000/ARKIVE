@@ -1,48 +1,57 @@
-import { useState } from 'react'
-import { X, Lock, Download, Shield, AlertTriangle, ChevronDown } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Lock, Download, Shield, AlertTriangle } from 'lucide-react'
+import { useAccount } from 'wagmi'
 import { useVault } from '../hooks/useVault'
 import { vaultErrorMessage } from '../lib/setupStatus'
+import { sanitizeFileName, needsDownloadWarning } from '../lib/security'
+import { hasLocalVaultBundle } from '../lib/vaultLocal'
+import { Modal, ModalHeader, ModalBody } from './Modal'
 import toast from 'react-hot-toast'
 
 export default function DecryptModal({ file, onClose }) {
+  const { address } = useAccount()
   const { retrieveAndDecryptFile, loading, step } = useVault()
   const [decrypted, setDecrypted] = useState(null)
-  const [litFailed, setLitFailed] = useState(false)
-  const [showManual, setShowManual] = useState(false)
+  const [localReady, setLocalReady] = useState(null)
+  const [downloadConfirm, setDownloadConfirm] = useState(false)
 
-  async function handleDecrypt() {
+  const arweaveId = file.encryptedArweaveId
+
+  useEffect(() => {
+    let cancelled = false
+    hasLocalVaultBundle(arweaveId).then((ok) => {
+      if (!cancelled) setLocalReady(ok)
+    })
+    return () => { cancelled = true }
+  }, [arweaveId])
+
+  async function handleView() {
     try {
-      toast('Sign your wallet to decrypt', { icon: '🔐' })
-      const result = await retrieveAndDecryptFile(file.encryptedArweaveId, false)
+      const result = await retrieveAndDecryptFile(arweaveId)
       setDecrypted(result)
-      toast.success('File decrypted')
+      toast.success('Unlocked')
     } catch (error) {
-      if (error.message?.includes('Lit') || error.message?.includes('session')) {
-        setLitFailed(true)
-        toast.error('Lit Protocol unavailable. Use wallet fallback below.')
-      } else {
-        toast.error(vaultErrorMessage(error))
-      }
+      toast.error(vaultErrorMessage(error), { duration: 8000 })
     }
   }
 
-  async function handleWalletFallback() {
-    try {
-      toast('Sign the derivation message in MetaMask to decrypt', { icon: '🔐' })
-      const result = await retrieveAndDecryptFile(file.encryptedArweaveId, true)
-      setDecrypted(result)
-      toast.success('File decrypted using wallet fallback')
-    } catch (error) {
-      toast.error('Wallet fallback failed. Make sure you are using the original wallet that encrypted this file.')
-    }
+  function performDownload() {
+    if (!decrypted) return
+    const a = document.createElement('a')
+    a.href = decrypted.url
+    a.download = sanitizeFileName(decrypted.fileName)
+    a.rel = 'noopener'
+    a.click()
+    setDownloadConfirm(false)
   }
 
   function handleDownload() {
     if (!decrypted) return
-    const a = document.createElement('a')
-    a.href = decrypted.url
-    a.download = decrypted.fileName
-    a.click()
+    if (needsDownloadWarning(decrypted.fileType)) {
+      setDownloadConfirm(true)
+      return
+    }
+    performDownload()
   }
 
   function handleClose() {
@@ -50,168 +59,116 @@ export default function DecryptModal({ file, onClose }) {
     onClose()
   }
 
+  const walletShort = address
+    ? `${address.slice(0, 6)}…${address.slice(-4)}`
+    : 'not connected'
+
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-elevated border border-border rounded-2xl w-full max-w-lg animate-slide-up">
+    <Modal onClose={handleClose}>
+      <ModalHeader
+        title={sanitizeFileName(file.fileName)}
+        description={decrypted ? 'Decrypted in this session only.' : `Sign with wallet ${walletShort} to unlock.`}
+        onClose={handleClose}
+        icon={Lock}
+      />
 
-        <div className="flex items-center justify-between p-5 border-b border-border">
-          <div className="flex items-center gap-2 min-w-0">
-            <Lock size={18} className="text-purple-400 shrink-0" />
-            <h2 className="font-display text-lg font-semibold text-text-primary truncate">
-              {file.fileName}
-            </h2>
-          </div>
-          <button onClick={handleClose} className="text-text-muted hover:text-text-primary transition-colors">
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="p-5">
-
-          {!decrypted ? (
-            <div>
-
-              <div className="text-center py-4">
-                <div className="h-16 w-16 bg-purple-500/10 border border-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Lock size={28} className="text-purple-400" />
-                </div>
-                <p className="font-body text-text-secondary text-sm leading-relaxed mb-6">
-                  This file is encrypted. Sign your wallet to prove ownership and decrypt it.
-                  The file is never permanently decrypted — it is only visible temporarily in this session.
-                </p>
-
-                {loading && step && (
-                  <div className="bg-card border border-border rounded-lg px-4 py-3 mb-4 flex items-center gap-3">
-                    <div className="h-4 w-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                    <span className="font-mono text-xs text-text-secondary">{step}</span>
-                  </div>
-                )}
-              </div>
-
-              {!litFailed ? (
-                <button
-                  onClick={handleDecrypt}
-                  disabled={loading}
-                  className="w-full flex items-center justify-center gap-2 bg-purple-500 text-white py-3 rounded-xl font-display font-semibold text-sm hover:bg-purple-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mb-3"
-                >
-                  <Lock size={16} />
-                  {loading ? 'Decrypting...' : 'Sign to Decrypt'}
-                </button>
-              ) : null}
-
-              <button
-                onClick={handleWalletFallback}
-                disabled={loading}
-                className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-display font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed mb-3 ${
-                  litFailed
-                    ? 'bg-purple-500 text-white hover:bg-purple-400'
-                    : 'bg-purple-500/10 border border-purple-500/20 text-purple-400 hover:bg-purple-500/20'
-                }`}
-              >
-                <Shield size={16} />
-                {loading
-                  ? 'Decrypting...'
-                  : litFailed
-                    ? 'Decrypt with Wallet (Lit unavailable)'
-                    : 'Use Wallet Fallback Instead'}
-              </button>
-
-              {litFailed && (
-                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 mb-3">
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle size={16} className="text-amber-400 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="font-display text-xs font-semibold text-amber-300 mb-1">
-                        Lit Protocol Unavailable
-                      </p>
-                      <p className="font-body text-xs text-amber-300/80 leading-relaxed">
-                        The wallet fallback path works without Lit Protocol.
-                        Sign the derivation message when MetaMask prompts you.
-                        Your files are safe — this fallback was built in from day one.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <button
-                onClick={() => setShowManual(!showManual)}
-                className="w-full flex items-center justify-between py-2 text-text-muted hover:text-text-secondary transition-colors text-xs font-mono"
-              >
-                <span>Manual recovery (advanced)</span>
-                <ChevronDown size={14} className={`transition-transform ${showManual ? 'rotate-180' : ''}`} />
-              </button>
-
-              {showManual && (
-                <div className="bg-card border border-border rounded-xl p-4 mt-2">
-                  <p className="font-mono text-xs text-text-secondary leading-relaxed mb-3">
-                    If both paths above fail, you can decrypt manually in any browser console:
-                  </p>
-                  <div className="space-y-2">
-                    {[
-                      `1. Fetch the payload: await fetch("https://arweave.net/${file.encryptedArweaveId}").then(r=>r.json())`,
-                      '2. Sign: await ethereum.request({method:"personal_sign",params:["ARKIVE_VAULT_KEY_DERIVATION_V1_DO_NOT_SIGN_IN_ANY_OTHER_CONTEXT", yourAddress]})',
-                      '3. Hash the signature with keccak256 — this is your derived AES key',
-                      '4. AES-GCM decrypt walletEncryptedAesKey using derived key + walletEncryptedAesKeyIv',
-                      '5. AES-GCM decrypt encryptedFile using result + encryptedFileIv',
-                      '6. File bytes are your original file',
-                    ].map((s, i) => (
-                      <p key={i} className="font-mono text-xs text-text-muted leading-relaxed">{s}</p>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="bg-purple-500/5 border border-purple-500/10 rounded-xl p-4 mt-3">
-                <div className="flex items-start gap-2">
-                  <Shield size={14} className="text-purple-400 mt-0.5 flex-shrink-0" />
-                  <p className="font-mono text-xs text-text-muted leading-relaxed">
-                    This file is protected by dual encryption. Even if ARKIVE and Lit Protocol both disappear,
-                    your wallet signature alone can decrypt it from Arweave permanently.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-          ) : (
-            <div>
-              {decrypted.fileType?.startsWith('image/') && (
-                <img
-                  src={decrypted.url}
-                  alt={decrypted.fileName}
-                  className="w-full rounded-xl mb-4 max-h-96 object-contain"
-                />
-              )}
-              {decrypted.fileType === 'application/pdf' && (
-                <iframe
-                  src={decrypted.url}
-                  className="w-full h-64 rounded-xl mb-4"
-                  title={decrypted.fileName}
-                />
-              )}
-              {!decrypted.fileType?.startsWith('image/') && decrypted.fileType !== 'application/pdf' && (
-                <div className="bg-card border border-border rounded-xl p-8 text-center mb-4">
-                  <p className="font-body text-text-secondary text-sm">
-                    File decrypted successfully. Download to open.
-                  </p>
-                </div>
-              )}
-
-              <button
-                onClick={handleDownload}
-                className="w-full flex items-center justify-center gap-2 bg-purple-500 text-white py-3 rounded-xl font-display font-semibold text-sm hover:bg-purple-400 transition-colors"
-              >
-                <Download size={16} />
-                Download {decrypted.fileName}
-              </button>
-
-              <p className="font-mono text-xs text-text-muted text-center mt-3">
-                File will be removed from memory when you close this modal
+      <ModalBody>
+        {!decrypted ? (
+          <div className="space-y-4">
+            {localReady === false && (
+              <p className="status-pill status-pill-warn w-full text-left text-xs leading-relaxed">
+                No local copy on this browser — delete this entry and use Store file again.
               </p>
+            )}
+            {localReady === true && (
+              <p className="status-pill status-pill-ok w-full text-left text-xs">
+                Ready on this device — opens after you sign.
+              </p>
+            )}
+
+            {loading && step && (
+              <div className="notice-inline flex items-center gap-3">
+                <div className="h-4 w-4 border-2 border-brand border-t-transparent rounded-full animate-spin shrink-0" />
+                <span className="font-mono text-[11px] text-text-secondary">{step}</span>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleView}
+              disabled={loading || !address}
+              className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Lock size={16} />
+              {loading ? 'Opening…' : 'Sign & view'}
+            </button>
+
+            <div className="notice-inline">
+              <div className="flex items-start gap-2">
+                <Shield size={14} className="text-text-muted mt-0.5 shrink-0" />
+                <p className="font-mono text-[11px] text-text-muted leading-relaxed">
+                  Arweave ID: {arweaveId?.slice(0, 12)}…
+                </p>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
-    </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="status-pill status-pill-ok w-fit mx-auto">
+              Verified {walletShort}
+            </p>
+
+            {decrypted.fileType?.startsWith('image/') && (
+              <img
+                src={decrypted.url}
+                alt={decrypted.fileName}
+                className="w-full rounded-xl max-h-80 object-contain bg-black/30 ring-1 ring-border"
+              />
+            )}
+            {decrypted.fileType === 'application/pdf' && (
+              <iframe
+                src={decrypted.url}
+                className="w-full h-64 rounded-xl ring-1 ring-border"
+                title={decrypted.fileName}
+                sandbox=""
+              />
+            )}
+            {!decrypted.fileType?.startsWith('image/') && decrypted.fileType !== 'application/pdf' && (
+              <div className="notice-inline text-center py-8">
+                <p className="font-body text-text-secondary text-sm">File unlocked. Download to open.</p>
+              </div>
+            )}
+
+            {downloadConfirm ? (
+              <div className="notice-inline space-y-3 border-amber-500/30 bg-amber-500/5">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle size={16} className="text-amber-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-text-secondary leading-relaxed">
+                    Only download files you sealed yourself. Opening unknown files on your device can run malware.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setDownloadConfirm(false)} className="btn-ghost flex-1 text-xs">
+                    Cancel
+                  </button>
+                  <button type="button" onClick={performDownload} className="btn-primary flex-1 text-xs">
+                    Download anyway
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={handleDownload} className="btn-primary w-full">
+                <Download size={16} />
+                Download {sanitizeFileName(decrypted.fileName)}
+              </button>
+            )}
+
+            <p className="font-mono text-[11px] text-text-muted text-center">
+              Cleared from memory when you close this window
+            </p>
+          </div>
+        )}
+      </ModalBody>
+    </Modal>
   )
 }
