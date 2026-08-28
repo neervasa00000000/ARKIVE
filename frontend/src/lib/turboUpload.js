@@ -64,9 +64,9 @@ const TURBO_PUBKEY_PREFIX = 'arkive_turbo_pubkey_'
 const MISROUTE_STORAGE_PREFIX = 'arkive_turbo_misroute_'
 /** Drop fund-tx markers older than this — prevents permanent upload blocks */
 const FUND_TX_MAX_AGE_MS = 45 * 60 * 1000
-const SIGN_TIMEOUT_MS = 45_000
-/** MetaMask must show a prompt within this window — smart accounts often ignore walletClient.signMessage */
-const METAMASK_PROMPT_TIMEOUT_MS = 12_000
+const SIGN_TIMEOUT_MS = 90_000
+/** Wait for MetaMask popup — extension can be slow; 12s caused false timeouts */
+const METAMASK_PROMPT_TIMEOUT_MS = 60_000
 const TURBO_API_TIMEOUT_MS = 20_000
 const UPLOAD_TIMEOUT_MS = 90_000
 const UPLOAD_TIMEOUT_FEED_MS = 60_000

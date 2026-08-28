@@ -22,8 +22,8 @@ function sponsorUrl(path) {
 
 const SPONSOR_ENDPOINT = () => sponsorUrl('/api/turbo/sponsor-feed')
 const SPONSOR_HEALTH_ENDPOINT = () => sponsorUrl('/api/turbo/health')
-const SIGN_TIMEOUT_MS = 45_000
-const METAMASK_PROMPT_TIMEOUT_MS = 12_000
+const SIGN_TIMEOUT_MS = 90_000
+const METAMASK_PROMPT_TIMEOUT_MS = 60_000
 
 function toUploadBytes(data) {
   if (data instanceof File || data instanceof Blob) {

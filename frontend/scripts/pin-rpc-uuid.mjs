@@ -1,6 +1,6 @@
 /**
- * Keep rpc-websockets on uuid@8.x (CJS). uuid@14 is ESM-only and crashes
- * Vercel/Netlify serverless with ERR_REQUIRE_ESM when Turbo SDK loads.
+ * Force rpc-websockets onto a CJS uuid. uuid@12+ is ESM-only and crashes
+ * Vercel/Netlify serverless (ERR_REQUIRE_ESM) when Turbo SDK loads Solana deps.
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -9,36 +9,55 @@ import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const nestedDir = join(root, 'node_modules/rpc-websockets/node_modules')
-const nestedPkg = join(nestedDir, 'uuid/package.json')
+const nestedRoot = join(nestedDir, 'uuid')
+const nestedPkg = join(nestedRoot, 'package.json')
 
-function uuidVersion(pkgPath) {
+function readPkg(pkgPath) {
   try {
-    return JSON.parse(readFileSync(pkgPath, 'utf8')).version || ''
+    return JSON.parse(readFileSync(pkgPath, 'utf8'))
   } catch {
-    return ''
+    return null
   }
 }
 
-const nestedVer = uuidVersion(nestedPkg)
-if (nestedVer && !nestedVer.startsWith('8.') && !nestedVer.startsWith('9.') && !nestedVer.startsWith('10.') && !nestedVer.startsWith('11.')) {
-  const require = createRequire(join(root, 'package.json'))
-  let source
-  try {
-    source = dirname(require.resolve('uuid/package.json'))
-  } catch {
-    console.warn('[pin-rpc-uuid] uuid not installed — skip')
-    process.exit(0)
-  }
-  const sourceVer = uuidVersion(join(source, 'package.json'))
-  if (!sourceVer.startsWith('8.') && !sourceVer.startsWith('11.')) {
-    console.warn('[pin-rpc-uuid] top-level uuid is', sourceVer, '— prefer overrides uuid@8.3.2')
-  }
+function isEsmOnlyUuid(pkg) {
+  if (!pkg?.version) return false
+  const major = Number.parseInt(String(pkg.version).split('.')[0], 10)
+  return major >= 12 || pkg.type === 'module'
+}
+
+if (!existsSync(join(root, 'node_modules/rpc-websockets'))) {
+  process.exit(0)
+}
+
+const require = createRequire(join(root, 'package.json'))
+let source
+try {
+  source = dirname(require.resolve('uuid/package.json'))
+} catch {
+  console.warn('[pin-rpc-uuid] uuid not installed — skip')
+  process.exit(0)
+}
+
+const sourcePkg = readPkg(join(source, 'package.json'))
+if (!sourcePkg || isEsmOnlyUuid(sourcePkg)) {
+  console.warn(
+    '[pin-rpc-uuid] top-level uuid is ESM-only (',
+    sourcePkg?.version,
+    ') — set overrides uuid@8.3.2',
+  )
+  process.exit(0)
+}
+
+const nestedPkgJson = readPkg(nestedPkg)
+if (!nestedPkgJson || isEsmOnlyUuid(nestedPkgJson)) {
   mkdirSync(nestedDir, { recursive: true })
-  rmSync(join(nestedDir, 'uuid'), { recursive: true, force: true })
-  cpSync(source, join(nestedDir, 'uuid'), { recursive: true })
-  console.info('[pin-rpc-uuid] replaced rpc-websockets uuid', nestedVer, '→', sourceVer)
-} else if (!existsSync(join(root, 'node_modules/rpc-websockets'))) {
-  /* turbo-sdk not installed in this install context */
-} else {
-  /* already CJS-safe or hoisted */
+  rmSync(nestedRoot, { recursive: true, force: true })
+  cpSync(source, nestedRoot, { recursive: true })
+  console.info(
+    '[pin-rpc-uuid] pinned rpc-websockets uuid',
+    nestedPkgJson?.version || '(missing)',
+    '→',
+    sourcePkg.version,
+  )
 }
