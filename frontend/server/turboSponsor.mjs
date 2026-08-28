@@ -2,10 +2,14 @@
  * App-sponsored feed storage — deployer pays Turbo when user credits / ETH path fails.
  * User still signs createPost on-chain; this endpoint only covers Arweave bytes.
  *
+ * Intentionally does NOT import @ardrive/turbo-sdk (pulls Solana → rpc-websockets →
+ * uuid ESM which crashes Vercel/Netlify serverless). Uses arbundles + Turbo HTTP API.
+ *
  * Env (server-only, never VITE_):
  *   DEPLOYER_PRIVATE_KEY — from contracts/.env
  *   SPONSOR_PORT — default 8787
  *   SPONSOR_MAX_BYTES — default 10MB (feed image cap)
+ *   TURBO_UPLOAD_URL — default https://upload.ardrive.io
  *
  * Production: deploy as serverless/Express with same env vars + rate limits.
  */
@@ -14,12 +18,7 @@ import { createHash } from 'node:crypto'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { config } from 'dotenv'
-import {
-  TurboFactory,
-  ExistingBalanceFunding,
-  defaultTurboConfiguration,
-} from '@ardrive/turbo-sdk'
-import { EthereumSigner } from '@dha-team/arbundles'
+import { createData, EthereumSigner } from '@dha-team/arbundles'
 import { verifyMessage, isAddress } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
 import { validateSponsorPayload } from '../src/lib/security.js'
@@ -33,13 +32,10 @@ if (!process.env.DEPLOYER_PRIVATE_KEY?.trim()) {
 const PORT = Number(process.env.PORT || process.env.SPONSOR_PORT || 8787)
 const HOST = process.env.SPONSOR_HOST || (process.env.RAILWAY_ENVIRONMENT || process.env.RENDER ? '0.0.0.0' : '127.0.0.1')
 const MAX_BYTES = Number(process.env.SPONSOR_MAX_BYTES || 10 * 1024 * 1024)
+const TURBO_UPLOAD_URL = (process.env.TURBO_UPLOAD_URL || 'https://upload.ardrive.io').replace(/\/$/, '')
+const TURBO_TOKEN = 'base-eth'
 const AUTH_MAX_AGE_MS = 5 * 60 * 1000
 const SPONSOR_AUTH_PREFIX = 'ARKIVE sponsor'
-
-const CHAIN_RPC = {
-  [baseSepolia.id]: process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',
-  [base.id]: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
-}
 
 const DEFAULT_ORIGINS = [
   'http://localhost:5173',
@@ -152,25 +148,35 @@ function resolveChain(chainId) {
   throw new Error('UNSUPPORTED_CHAIN')
 }
 
-/** @type {{ turbo: import('@ardrive/turbo-sdk').TurboAuthenticatedClient, chainId: number } | null} */
-let deployerTurboCache = null
-
-async function getDeployerTurbo(chainId) {
+function deployerSigner() {
   const pk = loadDeployerKey()
   if (!pk) throw new Error('SPONSOR_NOT_CONFIGURED')
+  const hex = pk.startsWith('0x') || pk.startsWith('0X') ? pk.slice(2) : pk
+  return new EthereumSigner(hex)
+}
 
-  if (deployerTurboCache?.chainId === chainId) return deployerTurboCache.turbo
-
-  const chain = resolveChain(chainId)
-  const signer = new EthereumSigner(pk)
-  const turbo = TurboFactory.authenticated({
-    ...defaultTurboConfiguration,
-    signer,
-    token: 'base-eth',
-    gatewayUrl: CHAIN_RPC[chain.id],
+async function uploadSignedDataItem(rawBytes) {
+  const res = await fetch(`${TURBO_UPLOAD_URL}/v1/tx/${TURBO_TOKEN}`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/octet-stream',
+      'content-length': String(rawBytes.length),
+    },
+    body: rawBytes,
   })
-  deployerTurboCache = { turbo, chainId }
-  return turbo
+  const text = await res.text()
+  let json
+  try {
+    json = JSON.parse(text)
+  } catch {
+    json = null
+  }
+  if (!res.ok) {
+    const detail = (json?.message || json?.error || text || res.statusText || '').slice(0, 240)
+    throw new Error(`TURBO_UPLOAD_REJECTED:${res.status}:${detail}`)
+  }
+  if (!json?.id) throw new Error('UPLOAD_NO_ID')
+  return json.id
 }
 
 async function sponsorUpload(body) {
@@ -184,6 +190,9 @@ async function sponsorUpload(body) {
     signature,
   } = body
 
+  // Validate chain early (Base / Base Sepolia only)
+  resolveChain(chainId)
+
   const bytes = decodePayload(data)
   validateSponsorPayload(bytes, contentType, byteCount)
 
@@ -194,24 +203,19 @@ async function sponsorUpload(body) {
     throw new Error('RATE_LIMIT_WALLET')
   }
 
-  const turbo = await getDeployerTurbo(Number(chainId))
-  const response = await turbo.uploadFile({
-    fileStreamFactory: () => bytes,
-    fileSizeFactory: () => bytes.length,
-    fundingMode: new ExistingBalanceFunding(),
-    dataItemOpts: {
-      tags: [
-        { name: 'Content-Type', value: contentType },
-        { name: 'App-Name', value: 'ARKIVE' },
-        { name: 'App-Version', value: '2.3.0' },
-        { name: 'Upload-Funding', value: 'base-eth-sponsor' },
-        { name: 'Sponsor-For', value: walletKey },
-      ],
-    },
+  const signer = deployerSigner()
+  const dataItem = createData(bytes, signer, {
+    tags: [
+      { name: 'Content-Type', value: contentType },
+      { name: 'App-Name', value: 'ARKIVE' },
+      { name: 'App-Version', value: '2.3.0' },
+      { name: 'Upload-Funding', value: 'base-eth-sponsor' },
+      { name: 'Sponsor-For', value: walletKey },
+    ],
   })
-
-  if (!response?.id) throw new Error('UPLOAD_NO_ID')
-  return { arweaveId: response.id }
+  await dataItem.sign(signer)
+  const arweaveId = await uploadSignedDataItem(dataItem.getRaw())
+  return { arweaveId }
 }
 
 const server = http.createServer(async (req, res) => {
