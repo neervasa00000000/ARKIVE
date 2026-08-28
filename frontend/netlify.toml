@@ -1,6 +1,20 @@
+# Site subdomain is set in Netlify UI/API (not in this file).
+# Linked site: https://arkive-beta.netlify.app
+
 [build]
-  command = "npm run build"
+  command = "VITE_STRICT_PRODUCTION=false npm run build"
   publish = "dist"
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/turbo/health"
+  to = "/.netlify/functions/turbo-api"
+  status = 200
+
+[[redirects]]
+  from = "/api/turbo/sponsor-feed"
+  to = "/.netlify/functions/turbo-api"
+  status = 200
 
 [[redirects]]
   from = "/*"

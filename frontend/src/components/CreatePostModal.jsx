@@ -154,6 +154,7 @@ export default function CreatePostModal({ onClose, onSuccess }) {
       toast.success('Posted permanently to Arweave')
       onSuccess?.(result)
     } catch (error) {
+      setPrepStep('')
       const chainPending = parseChainRegisterError(error)
       if (chainPending?.arweaveId) {
         setPendingChain(chainPending)

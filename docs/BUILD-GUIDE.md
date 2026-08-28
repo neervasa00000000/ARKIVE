@@ -14,8 +14,9 @@ Web3 dApp MVP on **Base Sepolia** (chain ID `84532`).
 | Points | Gamification (welcome, posts, likes) | — | PointsSystem |
 
 - **Wallet:** MetaMask / RainbowKit (WalletConnect optional)
-- **Encryption:** Lit Protocol (primary) + wallet signature derivation (fallback)
+- **Encryption:** Random AES-256-GCM file key; EIP-712 wallet wraps (up to 3 authorised wallets + optional recovery passphrase); encrypted metadata; Lit optional when present
 - **Permanent storage:** Arweave via Turbo SDK (`@ardrive/turbo-sdk`) — **user-paid** from connected wallet
+- **Architecture:** see `docs/ARCHITECTURE.md`
 
 ## Repository Layout
 

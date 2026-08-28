@@ -1,58 +1,93 @@
 # ARKIVE
-**Your files. Permanent. Private. Only your wallet opens them.**
 
-## What is this
-ARKIVE is a personal vault built on blockchain. You upload a file, it encrypts in your browser before it ever touches the internet, then gets stored permanently on Filecoin and Arweave. The only way to get it back is signing in with the same wallet that uploaded it.
+**Your files shouldn't depend on our company existing.**
 
-No company in the middle. No password resets. No customer support. No one who can lock you out or delete your things. Even if ARKIVE shuts down tomorrow, every file stays permanently accessible to the wallet that owns it. Forever.
+ARKIVE is a self-custodied, encrypted personal vault. Files are encrypted in your browser before they leave the device, stored on decentralized networks (Arweave today), and indexed on Base. **No single company controls your files or holds the keys needed to read them** — including ARKIVE.
 
-## Why this exists
-Skiff had over a million users. Notion acquired them and gave people a few weeks to export everything or lose it permanently. Google terminates accounts without warning. iCloud goes down. Platforms get acquired overnight.
+## What it is
 
-Every single time this happens someone loses their wedding photos, their legal documents, their medical records — things that cannot be replaced. The person who lost everything did nothing wrong. They just trusted the wrong company.
+| Surface | Privacy | Storage | On-chain registry |
+|---------|---------|---------|-------------------|
+| **Vault** | Private — encrypted client-side; only authorised wallets can decrypt | Arweave (Turbo SDK) | `VaultRegistry` on Base |
+| **Feed** | Public permanent posts | Arweave (Turbo SDK) | `PostRegistry` on Base |
 
-ARKIVE makes that impossible.
+Encrypted blobs live on storage networks; Base is a discovery/index layer, not the only place your archive can be found. Sensitive filenames are encrypted inside the vault header (on-chain records use a generic label).
 
-## How it works
-1. Connect your Ethereum wallet
-2. Pick a file to upload
-3. File encrypts in your browser before it leaves your device
-4. Encrypted file stores permanently on Filecoin and Arweave via Irys SDK
-5. Your wallet address and content hash are written to a smart contract on Base blockchain
-6. To retrieve — sign a message with your wallet, file decrypts locally in your browser
-7. Wrong wallet tries to access it — nothing happens, file stays encrypted permanently
+## How the vault works
 
-No database. No server storing your data. The blockchain is everything.
+1. Connect an Ethereum wallet (Base Sepolia for the current beta)
+2. Choose a file — it is encrypted in the browser with a **random AES-256-GCM key**
+3. That file key is **wrapped** for your wallet (EIP-712) and optionally a **recovery passphrase** and/or **up to two backup wallets** (3 authorised wallets total)
+4. The encrypted bundle is uploaded to Arweave (you pay storage via Turbo from your wallet)
+5. A record is written to `VaultRegistry` on Base (index only)
+6. To open a file: connect any authorised wallet, sign the vault key challenge, decrypt locally
 
-## Tech stack
-- Wallet connection — RainbowKit
-- Encryption — AES client side in browser
-- Permanent storage — Filecoin and Arweave via Irys SDK
-- Access registry — Smart contract on Base blockchain
-- Frontend — React
+Wrong wallet → nothing useful. The ciphertext can be public; the content stays unreadable without a wrap you can unlock.
+
+## Tech stack (as implemented)
+
+- **Wallet** — RainbowKit / wagmi
+- **Encryption** — AES-256-GCM (Web Crypto); wallet key wrap via EIP-712; optional PBKDF2 recovery passphrase; encrypted metadata
+- **Permanent storage** — Arweave via [@ardrive/turbo-sdk](https://docs.ardrive.io/) (user-paid ETH on Base)
+- **Access registry** — Solidity contracts on Base (Sepolia beta)
+- **Frontend** — React + Vite
+
+> **Not implemented:** Filecoin deals, Irys SDK, or a legal “130-year guarantee.” Permanence follows Arweave’s long-term storage model. Do not claim Filecoin permanence until that path exists.
+
+## Recovery (important)
+
+ARKIVE does not hold a master key. If all authorised wallets (and any recovery passphrase) are permanently lost, **the archive is permanently inaccessible**. That is intentional.
+
+When sealing you can add:
+
+1. **Seed phrase backup** of your main wallet  
+2. **Recovery passphrase** — wraps the file key (PBKDF2)  
+3. **Up to two backup wallets** — each can unlock the archive if the main wallet is lost  
+4. **Offline `.arkive` copy** — downloaded after seal; recoverable without this website
+
+Long-term design goal: recovery needs an authorised key (or passphrase) + one archive copy + the public [Recovery Specification](docs/RECOVERY-SPEC.md) — not a living company or a single blockchain.
+
+Accurate promise (vs marketing shortcuts):
+
+- Prefer: *No single company controls your files* / *Your files shouldn't depend on our company existing*
+- Avoid: *No company stores your data* (storage networks still involve operators)
+- Avoid: *Stored on blockchain forever* (the chain is an index; ciphertext lives on storage networks)
 
 ## Status
-Currently in development. Funded by Filecoin Foundation grant application in progress.
 
-First milestone: working MVP with wallet connect, encrypted upload, and wallet signature retrieval.
+Public beta on Base Sepolia.
 
-## Contact
-Built by Neer Vasa — goosebumps0051@gmail.com
+- Live: **https://arkive-beta.vercel.app**
+- Backup host: **https://arkive-beta.netlify.app**
+- Code: this repository
 
-## Repository structure
+## Repository layout
+
 ```
 ARKIVE/
 ├── README.md
-├── LICENSE
-├── CONTRIBUTING.md
-├── contracts/        ← smart contracts
-├── frontend/         ← React app
-├── docs/             ← documentation
-└── scripts/          ← deployment scripts
+├── DEPLOY.md             ← beta hosting
+├── docs/
+│   ├── ARCHITECTURE.md   ← encrypt → wrap → store → decrypt
+│   ├── RECOVERY-SPEC.md  ← blockchain-independent recovery (normative)
+│   ├── SECURITY.md
+│   └── BUILD-GUIDE.md
+├── contracts/            ← Solidity (Base Sepolia)
+├── frontend/             ← React app + Turbo sponsor server
+└── scripts/
 ```
 
 ## Development
-See `docs/BUILD-GUIDE.md` for setup, environment variables, and deployment.
 
-## Beta deployment
-See `DEPLOY.md` for Vercel/Netlify frontend + separate sponsor API deploy.
+```bash
+cd frontend
+cp .env.example .env   # set WalletConnect project id if needed
+npm install
+npm run dev            # Vite + sponsor plugin (see DEPLOY.md)
+```
+
+Contracts: see `docs/BUILD-GUIDE.md`. Security model: `docs/SECURITY.md`. Architecture: `docs/ARCHITECTURE.md`.
+
+## Contact
+
+Built by Neer Vasa — goosebumps0051@gmail.com
