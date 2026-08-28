@@ -360,7 +360,33 @@ export function assertVaultPayloadOwnership(payload, connectedAddress) {
     throw new Error('WALLET_NOT_CONNECTED')
   }
 
-  if (normalizedOwner !== normalizeEthAddress(connectedAddress)) {
+  const connected = normalizeEthAddress(connectedAddress)
+  if (normalizedOwner === connected) return payload
+
+  // Multi-wallet seals: any address with a key wrap (or listed authorised wallet) may decrypt
+  const authorised = new Set([normalizedOwner])
+  if (Array.isArray(payload.authorizedWallets)) {
+    for (const w of payload.authorizedWallets) {
+      try {
+        authorised.add(normalizeEthAddress(w))
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  if (Array.isArray(payload.keyWraps)) {
+    for (const wrap of payload.keyWraps) {
+      if (wrap?.wallet) {
+        try {
+          authorised.add(normalizeEthAddress(wrap.wallet))
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
+
+  if (!authorised.has(connected)) {
     throw new Error('NOT_VAULT_OWNER')
   }
 

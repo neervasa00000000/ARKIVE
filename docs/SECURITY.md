@@ -2,7 +2,7 @@
 
 ## Threat model
 
-ARKIVE protects **permanent, wallet-owned encrypted files** on Arweave with on-chain metadata on Base. Attackers may target:
+ARKIVE protects **permanent, wallet-owned encrypted files**. Ciphertext lives on Arweave (and optionally offline `.arkive` copies). Base is an index — not the sole recovery dependency. See `docs/RECOVERY-SPEC.md`.
 
 1. **Encryption bypass** — decrypt files without the owner wallet
 2. **Upload key theft** — mitigated: runtime uploads use user-wallet Turbo (no master key in bundle). Deploy key is Node-only (`ARWEAVE_DEPLOY_KEY`).
@@ -16,13 +16,16 @@ ARKIVE protects **permanent, wallet-owned encrypted files** on Arweave with on-c
 
 | Layer | Protection |
 |-------|------------|
-| AES-256-GCM | File encrypted before leaving browser |
-| Lit Protocol | Access conditions tied to wallet on Base Sepolia |
-| Wallet fallback | Deterministic key from fixed derivation message + signature |
-| Owner check | Payload `encryptedByWallet` must match connected wallet before decrypt |
+| AES-256-GCM | Random per-file key encrypts content before it leaves the browser |
+| Wallet key wrap | File key wrapped with EIP-712-derived AES key (not raw signature-as-key) |
+| Multi-wallet wraps | Up to 3 authorised wallets (owner + 2 backups) via `keyWraps[]` — 1-of-N unlock |
+| Encrypted metadata | Filename / MIME sealed under the file AES key; on-chain uses a generic label |
+| Recovery passphrase | Optional PBKDF2 wrap (`recoveryWrap`) for seed-loss scenarios |
+| Lit Protocol | Optional path when present in payload; wallet wrap is the reliable fallback |
+| Owner / authorised check | Payload must list connected wallet as owner or authorised wrap |
 | Arweave ID validation | Strict 43-char format before any fetch |
 
-**Wallet fallback (v2):** EIP-712 typed data — domain `ARKIVE` v2, `chainId` 84532, `verifyingContract` = VaultRegistry. Legacy v1 payloads use the fixed personal_sign string below.
+**Wallet wrap (v2):** EIP-712 typed data — domain `ARKIVE` v2, `chainId` 84532, `verifyingContract` = VaultRegistry. Legacy v1 payloads use the fixed personal_sign string below.
 
 ```
 ARKIVE_VAULT_KEY_DERIVATION_V1_DO_NOT_SIGN_IN_ANY_OTHER_CONTEXT
@@ -64,6 +67,12 @@ ARKIVE_VAULT_KEY_DERIVATION_V1_DO_NOT_SIGN_IN_ANY_OTHER_CONTEXT
 
 3. **Contracts unaudited**  
    Required before mainnet with real value.
+
+4. **Wallet loss without recovery options**  
+   Seals without backup wallets or a recovery passphrase depend entirely on the owner seed phrase. UI offers up to two backups + passphrase at seal time.
+
+5. **Storage claims**  
+   Permanence is Arweave/Turbo — not Filecoin. Do not claim multi-network redundancy until implemented.
 
 ### High
 

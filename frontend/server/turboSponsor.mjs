@@ -11,7 +11,6 @@
  */
 import http from 'node:http'
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { config } from 'dotenv'
@@ -25,9 +24,11 @@ import { verifyMessage, isAddress } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
 import { validateSponsorPayload } from '../src/lib/security.js'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-config({ path: resolve(__dirname, '../../contracts/.env') })
-config({ path: resolve(__dirname, '../.env') })
+const sponsorModuleDir = dirname(fileURLToPath(import.meta.url))
+if (!process.env.DEPLOYER_PRIVATE_KEY?.trim()) {
+  config({ path: resolve(sponsorModuleDir, '../../contracts/.env') })
+  config({ path: resolve(sponsorModuleDir, '../.env') })
+}
 
 const PORT = Number(process.env.PORT || process.env.SPONSOR_PORT || 8787)
 const HOST = process.env.SPONSOR_HOST || (process.env.RAILWAY_ENVIRONMENT || process.env.RENDER ? '0.0.0.0' : '127.0.0.1')
@@ -45,6 +46,8 @@ const DEFAULT_ORIGINS = [
   'http://127.0.0.1:5173',
   'http://localhost:4173',
   'http://127.0.0.1:4173',
+  'https://arkive-beta.vercel.app',
+  'https://arkive-beta.netlify.app',
 ]
 
 function loadAllowedOrigins() {

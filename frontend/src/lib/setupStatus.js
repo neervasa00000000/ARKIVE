@@ -66,7 +66,31 @@ export function vaultErrorMessage(error) {
       return 'Smart contracts are not deployed. Deploy to Base Sepolia and rebuild.'
     }
     if (code === 'NOT_VAULT_OWNER') {
-      return 'This file belongs to a different wallet.'
+      return 'This file is sealed for a different wallet. Connect an authorised wallet or use a recovery passphrase.'
+    }
+    if (code === 'BACKUP_WALLET_NOT_CONNECTED') {
+      return 'Switch MetaMask to the backup wallet address, then click Authorise.'
+    }
+    if (code === 'BACKUP_WALLET_NOT_AUTHORISED') {
+      return 'Authorise the backup wallet before storing (switch to it, sign once, then switch back).'
+    }
+    if (code === 'BACKUP_WALLET_SAME_AS_OWNER') {
+      return 'Backup wallet must be a different address from your main wallet.'
+    }
+    if (code === 'TOO_MANY_AUTHORISED_WALLETS') {
+      return 'You can authorise up to 3 wallets total (main + 2 backups).'
+    }
+    if (code === 'CONTENT_HASH_MISMATCH') {
+      return 'Archive integrity check failed. The ciphertext may be corrupted or tampered with.'
+    }
+    if (code === 'RECOVERY_PASSPHRASE_TOO_SHORT') {
+      return 'Recovery passphrase must be at least 8 characters.'
+    }
+    if (code === 'NO_RECOVERY_WRAP') {
+      return 'This file has no recovery passphrase. Connect an authorised wallet instead.'
+    }
+    if (code === 'NO_WALLET_KEY_WRAP') {
+      return 'No key wrap for this wallet. Connect the owner or backup wallet used at seal time.'
     }
     if (code === 'INVALID_ARWEAVE_ID' || code === 'INVALID_VAULT_PAYLOAD') {
       return 'Invalid storage record.'
@@ -171,6 +195,13 @@ export function vaultErrorMessage(error) {
       }
       if (detail === 'AUTH_INVALID' || detail === 'AUTH_EXPIRED') {
         return 'Sponsor auth failed. Open MetaMask and approve the sponsor signature, then retry.'
+      }
+      if (
+        detail === 'SPONSOR_INIT_FAILED' ||
+        detail.startsWith('SPONSOR_HTTP_5') ||
+        detail === 'FUNCTION_INVOCATION_FAILED'
+      ) {
+        return 'Storage sponsor is temporarily down. Approve MetaMask prompts on the wallet-paid path, or retry in a minute.'
       }
       return import.meta.env.DEV
         ? `Sponsor upload failed (${detail || 'unknown'}). Check console [ARKIVE sponsor] and restart npm run dev.`

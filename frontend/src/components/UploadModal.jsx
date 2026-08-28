@@ -23,13 +23,50 @@ function friendlyStep(step) {
   if (s.includes('uploading')) return 'Uploading…'
   if (s.includes('storage signature')) return 'Approve signature in MetaMask…'
   if (s.includes('wallet link')) return 'Approve wallet link in MetaMask…'
-  if (s.includes('vault key')) return 'Approve vault key in MetaMask…'
+  if (s.includes('vault key') || s.includes('backup vault')) return 'Approve vault key in MetaMask…'
   if (s.includes('storage payment') || s.includes(' eth ')) return 'Approve ETH payment in MetaMask…'
   if (s.includes('payment confirming')) return 'Payment confirming…'
   if (s.includes('metamask') || s.includes('approve')) return 'Check MetaMask…'
   if (s.includes('blockchain') || s.includes('register')) return 'Saving record…'
   if (s.includes('storage') || s.includes('credit')) return 'Preparing storage…'
   return 'Working…'
+}
+
+function BackupWalletField({
+  label,
+  value,
+  onChange,
+  authorised,
+  onAuthorise,
+  loading,
+}) {
+  return (
+    <div>
+      <label className="font-body text-xs text-text-secondary block mb-1">{label}</label>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="0x… — another wallet that can open this file"
+        className="input-field text-sm font-mono"
+      />
+      {value.trim() && (
+        <button
+          type="button"
+          onClick={onAuthorise}
+          disabled={loading || authorised}
+          className="btn-secondary btn-primary-sm mt-2 disabled:opacity-50"
+        >
+          {authorised ? 'Authorised' : '1. Switch MetaMask to this wallet → Authorise'}
+        </button>
+      )}
+      {authorised && (
+        <p className="font-body text-[11px] text-text-muted mt-2">
+          2. Switch MetaMask back to your main wallet before Encrypt &amp; store.
+        </p>
+      )}
+    </div>
+  )
 }
 
 export default function UploadModal({ onClose, onSuccess }) {
@@ -40,8 +77,15 @@ export default function UploadModal({ onClose, onSuccess }) {
   const [preview, setPreview] = useState(null)
   const [costEstimate, setCostEstimate] = useState(null)
   const [lastError, setLastError] = useState(null)
+  const [backup1, setBackup1] = useState('')
+  const [backup2, setBackup2] = useState('')
+  const [backup1Authorised, setBackup1Authorised] = useState(false)
+  const [backup2Authorised, setBackup2Authorised] = useState(false)
+  const [recoveryPassphrase, setRecoveryPassphrase] = useState('')
+  const [showRecovery, setShowRecovery] = useState(false)
   const fileRef = useRef()
-  const { storeFile, getStorageEstimate, loading, step, uploadProgress, SignPromptModal } = useVault()
+  const { storeFile, authorizeBackupWallet, getStorageEstimate, loading, step, uploadProgress, SignPromptModal } =
+    useVault()
 
   useEffect(() => {
     if (!file || !walletClient) {
@@ -55,6 +99,14 @@ export default function UploadModal({ onClose, onSuccess }) {
     warmTurboWalletLink(walletClient, () => {}).catch(() => {})
     return () => { cancelled = true }
   }, [file, walletClient, getStorageEstimate])
+
+  useEffect(() => {
+    setBackup1Authorised(false)
+  }, [backup1])
+
+  useEffect(() => {
+    setBackup2Authorised(false)
+  }, [backup2])
 
   async function handleFile(selected) {
     if (!selected) return
@@ -74,18 +126,59 @@ export default function UploadModal({ onClose, onSuccess }) {
     if (dropped) handleFile(dropped)
   }
 
+  async function handleAuthorizeBackup(slot) {
+    const raw = slot === 1 ? backup1.trim() : backup2.trim()
+    try {
+      await authorizeBackupWallet(raw)
+      if (slot === 1) setBackup1Authorised(true)
+      else setBackup2Authorised(true)
+      toast.success('Backup wallet authorised — switch back to your main wallet, then store')
+    } catch (error) {
+      toast.error(vaultErrorMessage(error))
+    }
+  }
+
   async function handleUpload() {
     if (!file) return
     setLastError(null)
     try {
-      const stored = await storeFile(file)
+      const opts = { backupAddresses: [] }
+      const slots = [
+        { raw: backup1.trim(), authorised: backup1Authorised },
+        { raw: backup2.trim(), authorised: backup2Authorised },
+      ]
+      for (const slot of slots) {
+        if (!slot.raw) continue
+        if (!slot.authorised) {
+          toast.error('Authorise each backup wallet first (switch to it in MetaMask)')
+          return
+        }
+        opts.backupAddresses.push(slot.raw)
+      }
+      if (recoveryPassphrase.trim()) {
+        opts.recoveryPassphrase = recoveryPassphrase
+      }
+      const stored = await storeFile(file, opts)
       toast.success('Saved to vault')
+
+      if (stored.offlinePackage && stored.offlineFileName) {
+        const blob = new Blob([stored.offlinePackage], { type: 'application/octet-stream' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = stored.offlineFileName
+        a.click()
+        URL.revokeObjectURL(url)
+        toast.success('Offline recovery copy (.arkive) downloaded — keep it safe', { duration: 6000 })
+      }
 
       const previewUrl = URL.createObjectURL(file)
       setPreview({
         url: previewUrl,
         fileName: stored.fileName,
         fileType: stored.fileType || file.type,
+        arweaveId: stored.arweaveId,
+        offlineFileName: stored.offlineFileName,
         cleanup: () => URL.revokeObjectURL(previewUrl),
       })
 
@@ -143,6 +236,17 @@ export default function UploadModal({ onClose, onSuccess }) {
             <p className="font-mono text-[11px] text-text-muted text-center leading-relaxed">
               Also in your vault — retrieve anytime with Sign &amp; View
             </p>
+            {preview.arweaveId && (
+              <p className="font-mono text-[10px] text-text-muted text-center break-all px-2">
+                Archive ID: {preview.arweaveId}
+              </p>
+            )}
+            {preview.offlineFileName && (
+              <p className="font-body text-[11px] text-text-secondary text-center leading-relaxed">
+                An offline <span className="font-mono">.arkive</span> recovery copy was saved to your downloads.
+                Keep it (and your seed / passphrase) independent of this website.
+              </p>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
@@ -177,6 +281,52 @@ export default function UploadModal({ onClose, onSuccess }) {
               )}
             </Dropzone>
             <input ref={fileRef} type="file" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
+
+            <button
+              type="button"
+              onClick={() => setShowRecovery((v) => !v)}
+              className="font-body text-xs text-text-muted underline-offset-2 hover:text-text-secondary hover:underline"
+            >
+              {showRecovery ? 'Hide recovery options' : 'Add recovery options (recommended)'}
+            </button>
+
+            {showRecovery && (
+              <div className="space-y-3 notice-inline">
+                <p className="font-body text-[11px] text-text-secondary leading-relaxed">
+                  ARKIVE cannot recover your archive if all authorised wallets are lost.
+                  Add up to two backup wallets and store their recovery credentials safely.
+                </p>
+                <div>
+                  <label className="font-body text-xs text-text-secondary block mb-1">
+                    Recovery passphrase (optional)
+                  </label>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={recoveryPassphrase}
+                    onChange={(e) => setRecoveryPassphrase(e.target.value)}
+                    placeholder="Min 8 characters — store offline"
+                    className="input-field text-sm"
+                  />
+                </div>
+                <BackupWalletField
+                  label="Backup wallet 1 (optional)"
+                  value={backup1}
+                  onChange={setBackup1}
+                  authorised={backup1Authorised}
+                  onAuthorise={() => handleAuthorizeBackup(1)}
+                  loading={loading}
+                />
+                <BackupWalletField
+                  label="Backup wallet 2 (optional)"
+                  value={backup2}
+                  onChange={setBackup2}
+                  authorised={backup2Authorised}
+                  onAuthorise={() => handleAuthorizeBackup(2)}
+                  loading={loading}
+                />
+              </div>
+            )}
 
             <MetaMaskSignInlineNotice />
 

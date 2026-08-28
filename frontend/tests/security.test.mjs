@@ -91,6 +91,30 @@ describe('security.js', () => {
     )
   })
 
+  it('allows authorised backup wallets to open vault payloads', () => {
+    const payload = {
+      schema: 'ARKIVE_VAULT_BUNDLE_V3',
+      encryptedByWallet: OWNER,
+      keyWraps: [
+        {
+          wallet: OTHER,
+          method: 'eip712-v2',
+          encryptedAesKey: 'YQ==',
+          iv: 'Yg==',
+        },
+      ],
+    }
+    assert.equal(assertVaultPayloadOwnership(payload, OTHER).encryptedByWallet, OWNER)
+    assert.throws(
+      () =>
+        assertVaultPayloadOwnership(
+          { schema: 'ARKIVE_VAULT_BUNDLE_V3', encryptedByWallet: OWNER },
+          OTHER,
+        ),
+      /NOT_VAULT_OWNER/,
+    )
+  })
+
   it('validates post text bounds', () => {
     assert.equal(validatePostText('hello'), 'hello')
     assert.throws(() => validatePostText('   '), /EMPTY_POST/)

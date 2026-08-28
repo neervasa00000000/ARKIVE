@@ -1,0 +1,20 @@
+# ARKIVE sponsor API — deploy from repo root with frontend/ as root directory
+services:
+  - type: web
+    name: arkive-sponsor
+    runtime: node
+    rootDir: frontend
+    buildCommand: npm install
+    startCommand: node server/turboSponsor.mjs
+    healthCheckPath: /api/turbo/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: SPONSOR_HOST
+        value: "0.0.0.0"
+      - key: SPONSOR_ALLOWED_ORIGINS
+        sync: false
+      - key: DEPLOYER_PRIVATE_KEY
+        sync: false
+      - key: BASE_SEPOLIA_RPC_URL
+        value: https://sepolia.base.org
