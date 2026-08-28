@@ -191,9 +191,21 @@ export async function sponsorFeedUpload(walletClient, data, opts = {}) {
     throw new Error('SPONSOR_UPLOAD_FAILED:NETWORK_ERROR')
   }
 
-  const payload = await res.json().catch(() => ({}))
+  const rawBody = await res.text().catch(() => '')
+  let payload = {}
+  try {
+    payload = rawBody ? JSON.parse(rawBody) : {}
+  } catch {
+    payload = {}
+  }
   if (!res.ok) {
-    const code = payload?.error || `SPONSOR_HTTP_${res.status}`
+    let code = payload?.error || `SPONSOR_HTTP_${res.status}`
+    if (
+      /FUNCTION_INVOCATION_FAILED|ERR_REQUIRE_ESM|uuid\/dist-node/i.test(rawBody) ||
+      (!payload?.error && res.status >= 500)
+    ) {
+      code = 'FUNCTION_INVOCATION_FAILED'
+    }
     console.error('[ARKIVE sponsor] upload rejected', { status: res.status, code })
     throw new Error(`SPONSOR_UPLOAD_FAILED:${code}`)
   }
