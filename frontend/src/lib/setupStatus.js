@@ -199,9 +199,11 @@ export function vaultErrorMessage(error) {
       if (
         detail === 'SPONSOR_INIT_FAILED' ||
         detail.startsWith('SPONSOR_HTTP_5') ||
-        detail === 'FUNCTION_INVOCATION_FAILED'
+        detail === 'FUNCTION_INVOCATION_FAILED' ||
+        detail.includes('ERR_REQUIRE_ESM') ||
+        detail.includes('uuid')
       ) {
-        return 'Storage sponsor is temporarily down. Approve MetaMask prompts on the wallet-paid path, or retry in a minute.'
+        return 'Feed storage server is out of date — redeploy frontend on Vercel/Netlify (latest main), then hard-refresh.'
       }
       return import.meta.env.DEV
         ? `Sponsor upload failed (${detail || 'unknown'}). Check console [ARKIVE sponsor] and restart npm run dev.`
