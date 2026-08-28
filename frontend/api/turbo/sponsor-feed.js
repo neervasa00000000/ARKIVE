@@ -1,5 +1,3 @@
-import { handleSponsorFeed } from './_shared.mjs'
-
 export const config = {
   api: {
     bodyParser: {
