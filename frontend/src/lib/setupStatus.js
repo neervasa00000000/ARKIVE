@@ -123,7 +123,7 @@ export function vaultErrorMessage(error) {
       return 'Wallet mismatch for storage. Disconnect MetaMask, reconnect on Base Sepolia, retry.'
     }
     if (code === 'WALLET_SIGN_TIMEOUT') {
-      return 'Open MetaMask — tap the pending Sign request. No prompt appeared within 12 seconds.'
+      return 'Open MetaMask (browser extension icon) and approve the pending Sign request — then try again if needed.'
     }
     if (code === 'TURBO_UPLOAD_TIMEOUT') {
       return 'Upload took too long. Open MetaMask for pending requests, then try again.'

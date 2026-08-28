@@ -30,6 +30,7 @@
     "react-dom": "^18.3.0",
     "react-hot-toast": "^2.4.0",
     "react-router-dom": "^6.26.0",
+    "uuid": "8.3.2",
     "viem": "^2.0.0",
     "wagmi": "^2.0.0"
   },

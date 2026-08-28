@@ -5,6 +5,9 @@
       "memory": 1024
     }
   },
+  "env": {
+    "NODE_OPTIONS": "--experimental-require-module"
+  },
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],

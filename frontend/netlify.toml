@@ -6,6 +6,9 @@
   publish = "dist"
   functions = "netlify/functions"
 
+[build.environment]
+  NODE_OPTIONS = "--experimental-require-module"
+
 [[redirects]]
   from = "/api/turbo/health"
   to = "/.netlify/functions/turbo-api"
