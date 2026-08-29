@@ -19,7 +19,7 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { config } from 'dotenv'
 import { createData, EthereumSigner } from '@dha-team/arbundles'
-import { isAddress, createPublicClient, http, recoverMessageAddress } from 'viem'
+import { isAddress, createPublicClient, http as httpTransport, recoverMessageAddress } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
 import { validateSponsorPayload } from '../src/lib/security.js'
 
