@@ -44,11 +44,14 @@ describe('sponsor upload eligibility', () => {
 })
 
 describe('sponsor auth message', () => {
-  it('binds signature to payload sha256 hash', () => {
+  it('binds signature to payload sha256 hash (bare hex, matching server)', () => {
     const bytes = new TextEncoder().encode('{"text":"hello"}')
     const ts = 1700000000000
-    const hash = bytesToHex(sha256(bytes))
+    const digest = sha256(bytes)
+    const hash = (typeof digest === 'string' ? digest : bytesToHex(digest)).replace(/^0x/i, '')
     assert.equal(buildSponsorAuthMessage(ts, bytes), `${SPONSOR_AUTH_PREFIX} ${ts} ${hash}`)
+    assert.equal(hash.startsWith('0x'), false)
+    assert.equal(hash.length, 64)
   })
 
   it('changes message when payload bytes change', () => {
