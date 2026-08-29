@@ -2038,12 +2038,15 @@ export async function uploadFeedBytes(walletClient, data, opts = {}) {
     const { checkSponsorHealth, sponsorFeedUpload } = await import('./sponsorUpload.js')
     const health = await checkSponsorHealth()
     if (health.ok && health.configured) {
-      console.info('[ARKIVE sponsor] feed using sponsor-first path')
+      console.info('[ARKIVE sponsor] feed using sponsor-first path', {
+        base: health.base || '(same-origin)',
+      })
       feedOpts.onStep?.('Open MetaMask — approve sponsor upload signature…')
       return await sponsorFeedUpload(walletClient, data, {
         contentType: opts.contentType,
         onStep: opts.onStep,
         onSignPrompt: opts.onSignPrompt,
+        sponsorBase: health.base,
       })
     }
   } catch (sponsorFirstError) {

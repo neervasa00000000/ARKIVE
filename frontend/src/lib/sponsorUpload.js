@@ -2,6 +2,9 @@
  * Client for app-sponsored feed uploads.
  * User signs EIP-191 "ARKIVE sponsor {timestamp} {sha256(data)}" — server pays Turbo storage.
  * On-chain createPost still uses the user's wallet.
+ *
+ * Tries same-origin first, then known working Netlify sponsor host (Vercel serverless
+ * historically crashed on turbo-sdk; Netlify function is the reliable fallback).
  */
 import { bytesToHex, isHex, sha256, stringToHex } from 'viem'
 import { validateArweaveTxId } from './security.js'
@@ -9,21 +12,39 @@ import { warmArweaveCacheInBackground } from './arweaveCache.js'
 
 export const SPONSOR_AUTH_PREFIX = 'ARKIVE sponsor'
 
-/** Production: set VITE_SPONSOR_API_URL to sponsor server origin (no trailing slash). Dev uses Vite proxy. */
-function sponsorApiBase() {
-  const base = import.meta.env.VITE_SPONSOR_API_URL?.trim().replace(/\/$/, '')
-  return base || ''
-}
-
-function sponsorUrl(path) {
-  const base = sponsorApiBase()
-  return base ? `${base}${path}` : path
-}
-
-const SPONSOR_ENDPOINT = () => sponsorUrl('/api/turbo/sponsor-feed')
-const SPONSOR_HEALTH_ENDPOINT = () => sponsorUrl('/api/turbo/health')
+const NETLIFY_SPONSOR_ORIGIN = 'https://arkive-beta.netlify.app'
 const SIGN_TIMEOUT_MS = 90_000
 const METAMASK_PROMPT_TIMEOUT_MS = 60_000
+
+/** Ordered API bases to try (empty string = same origin). */
+function sponsorApiBases() {
+  const configured = import.meta.env.VITE_SPONSOR_API_URL?.trim().replace(/\/$/, '') || ''
+  const bases = []
+  const add = (b) => {
+    if (b === undefined || b === null) return
+    if (!bases.includes(b)) bases.push(b)
+  }
+
+  // Prefer Netlify when the page itself is on a host known to have a broken /api/turbo
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname || ''
+    if (host.endsWith('vercel.app')) {
+      add(NETLIFY_SPONSOR_ORIGIN)
+      add(configured)
+      add('')
+      return bases
+    }
+  }
+
+  add(configured)
+  add('')
+  add(NETLIFY_SPONSOR_ORIGIN)
+  return bases
+}
+
+function urlForBase(base, path) {
+  return base ? `${base}${path}` : path
+}
 
 function toUploadBytes(data) {
   if (data instanceof File || data instanceof Blob) {
@@ -73,6 +94,18 @@ function messageToPersonalSignHex(message) {
 function isUserRejectedSign(error) {
   const text = String(error?.message || error?.cause?.message || error || '').toLowerCase()
   return text.includes('user rejected') || text.includes('user denied') || text.includes('rejected the request')
+}
+
+function isTransientSponsorFailure(errorOrCode) {
+  const text = String(errorOrCode?.message || errorOrCode || '')
+  return (
+    text.includes('NETWORK_ERROR') ||
+    text.includes('FUNCTION_INVOCATION_FAILED') ||
+    text.includes('SPONSOR_HTTP_5') ||
+    text.includes('SPONSOR_INIT_FAILED') ||
+    text.includes('Failed to fetch') ||
+    text.includes('NetworkError')
+  )
 }
 
 /** Build payload-bound sponsor auth message (shared with server verification). */
@@ -136,58 +169,41 @@ async function signSponsorAuth(walletClient, bytes) {
   return { timestamp, signature, walletAddress: address }
 }
 
-/** Warm-check sponsor API — logs warning when dev proxy target is down. */
-export async function checkSponsorHealth() {
-  try {
-    const res = await fetch(SPONSOR_HEALTH_ENDPOINT(), { method: 'GET' })
-    const payload = await res.json().catch(() => ({}))
-    const ok = res.ok && payload?.ok === true
-    console.info('[ARKIVE sponsor] health', { ok, configured: payload?.sponsorConfigured })
-    return { ok, configured: Boolean(payload?.sponsorConfigured) }
-  } catch (error) {
-    console.warn('[ARKIVE sponsor] health check failed — sponsor fallback unavailable', error?.message || error)
-    return { ok: false, configured: false }
-  }
+async function healthForBase(base) {
+  const res = await fetch(urlForBase(base, '/api/turbo/health'), { method: 'GET' })
+  const payload = await res.json().catch(() => ({}))
+  const ok = res.ok && payload?.ok === true && Boolean(payload?.sponsorConfigured)
+  return { ok, configured: Boolean(payload?.sponsorConfigured), base }
 }
 
-/**
- * Upload feed bytes via deployer-sponsored Turbo storage.
- * @returns {Promise<string>} Arweave transaction id
- */
-export async function sponsorFeedUpload(walletClient, data, opts = {}) {
-  if (!walletClient?.account?.address) {
-    throw new Error('WALLET_NOT_CONNECTED')
+/** Warm-check sponsor API across same-origin + Netlify fallback. */
+export async function checkSponsorHealth() {
+  const bases = sponsorApiBases()
+  for (const base of bases) {
+    try {
+      const result = await healthForBase(base)
+      if (result.ok) {
+        console.info('[ARKIVE sponsor] health', { ok: true, configured: true, base: base || '(same-origin)' })
+        return { ok: true, configured: true, base }
+      }
+    } catch (error) {
+      console.warn('[ARKIVE sponsor] health failed for base', base || '(same-origin)', error?.message || error)
+    }
   }
+  console.warn('[ARKIVE sponsor] health check failed — sponsor fallback unavailable')
+  return { ok: false, configured: false, base: null }
+}
 
-  const bytes = toUploadBytes(data)
-  const chainId = walletClient.chain?.id ?? 84532
-  opts.onStep?.('Uploading…')
-
-  console.info('[ARKIVE sponsor] feed upload start', {
-    bytes: bytes.length,
-    chainId,
-    contentType: opts.contentType || 'application/octet-stream',
-  })
-
-  const { timestamp, signature, walletAddress } = await signSponsorAuth(walletClient, bytes)
-
+async function postSponsorFeed(base, body) {
   let res
   try {
-    res = await fetch(SPONSOR_ENDPOINT(), {
+    res = await fetch(urlForBase(base, '/api/turbo/sponsor-feed'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        walletAddress,
-        chainId,
-        byteCount: bytes.length,
-        contentType: opts.contentType || 'application/octet-stream',
-        data: bytesToBase64(bytes),
-        timestamp,
-        signature,
-      }),
+      body: JSON.stringify(body),
     })
   } catch (networkError) {
-    console.error('[ARKIVE sponsor] network error', networkError)
+    console.error('[ARKIVE sponsor] network error', { base: base || '(same-origin)', networkError })
     throw new Error('SPONSOR_UPLOAD_FAILED:NETWORK_ERROR')
   }
 
@@ -206,12 +222,68 @@ export async function sponsorFeedUpload(walletClient, data, opts = {}) {
     ) {
       code = 'FUNCTION_INVOCATION_FAILED'
     }
-    console.error('[ARKIVE sponsor] upload rejected', { status: res.status, code })
+    console.error('[ARKIVE sponsor] upload rejected', { status: res.status, code, base: base || '(same-origin)' })
     throw new Error(`SPONSOR_UPLOAD_FAILED:${code}`)
   }
+  return payload
+}
 
-  const arweaveId = validateArweaveTxId(payload.arweaveId)
-  warmArweaveCacheInBackground(arweaveId)
-  console.info('[ARKIVE sponsor] feed upload ok', { id: arweaveId, bytes: bytes.length })
-  return arweaveId
+/**
+ * Upload feed bytes via deployer-sponsored Turbo storage.
+ * @returns {Promise<string>} Arweave transaction id
+ */
+export async function sponsorFeedUpload(walletClient, data, opts = {}) {
+  if (!walletClient?.account?.address) {
+    throw new Error('WALLET_NOT_CONNECTED')
+  }
+
+  const bytes = toUploadBytes(data)
+  const chainId = walletClient.chain?.id ?? 84532
+  opts.onStep?.('Open MetaMask — approve sponsor upload signature…')
+
+  console.info('[ARKIVE sponsor] feed upload start', {
+    bytes: bytes.length,
+    chainId,
+    contentType: opts.contentType || 'application/octet-stream',
+  })
+
+  const { timestamp, signature, walletAddress } = await signSponsorAuth(walletClient, bytes)
+  opts.onStep?.('Uploading…')
+
+  const body = {
+    walletAddress,
+    chainId,
+    byteCount: bytes.length,
+    contentType: opts.contentType || 'application/octet-stream',
+    data: bytesToBase64(bytes),
+    timestamp,
+    signature,
+  }
+
+  const preferred = opts.sponsorBase
+  const bases = preferred !== undefined ? [preferred, ...sponsorApiBases().filter((b) => b !== preferred)] : sponsorApiBases()
+
+  let lastError
+  for (const base of bases) {
+    try {
+      const payload = await postSponsorFeed(base, body)
+      const arweaveId = validateArweaveTxId(payload.arweaveId)
+      warmArweaveCacheInBackground(arweaveId)
+      console.info('[ARKIVE sponsor] feed upload ok', {
+        id: arweaveId,
+        bytes: bytes.length,
+        base: base || '(same-origin)',
+      })
+      return arweaveId
+    } catch (error) {
+      lastError = error
+      if (isTransientSponsorFailure(error)) {
+        console.info('[ARKIVE sponsor] trying next sponsor base after', error?.message || error)
+        continue
+      }
+      throw error
+    }
+  }
+
+  throw lastError || new Error('SPONSOR_UPLOAD_FAILED:NETWORK_ERROR')
 }
