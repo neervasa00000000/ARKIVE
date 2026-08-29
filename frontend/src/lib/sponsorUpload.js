@@ -110,7 +110,9 @@ function isTransientSponsorFailure(errorOrCode) {
 
 /** Build payload-bound sponsor auth message (shared with server verification). */
 export function buildSponsorAuthMessage(timestamp, bytes) {
-  const hash = bytesToHex(sha256(bytes))
+  // viem sha256() already returns `0x…` hex — do NOT pass it through bytesToHex again
+  const digest = sha256(bytes)
+  const hash = (typeof digest === 'string' ? digest : bytesToHex(digest)).replace(/^0x/i, '')
   return `${SPONSOR_AUTH_PREFIX} ${timestamp} ${hash}`
 }
 

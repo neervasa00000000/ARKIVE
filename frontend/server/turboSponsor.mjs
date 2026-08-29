@@ -19,7 +19,7 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { config } from 'dotenv'
 import { createData, EthereumSigner } from '@dha-team/arbundles'
-import { verifyMessage, isAddress } from 'viem'
+import { isAddress, createPublicClient, http, recoverMessageAddress } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
 import { validateSponsorPayload } from '../src/lib/security.js'
 
@@ -125,7 +125,7 @@ function decodePayload(dataB64) {
   return buf
 }
 
-async function verifySponsorAuth(walletAddress, timestamp, signature, payloadBytes) {
+async function verifySponsorAuth(walletAddress, timestamp, signature, payloadBytes, chainId = baseSepolia.id) {
   if (!isAddress(walletAddress)) throw new Error('INVALID_WALLET')
   const ts = Number(timestamp)
   if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > AUTH_MAX_AGE_MS) {
@@ -133,12 +133,37 @@ async function verifySponsorAuth(walletAddress, timestamp, signature, payloadByt
   }
   const hash = createHash('sha256').update(payloadBytes).digest('hex')
   const message = `${SPONSOR_AUTH_PREFIX} ${ts} ${hash}`
-  const ok = await verifyMessage({
-    address: walletAddress,
-    message,
-    signature,
-  })
-  if (!ok) throw new Error('AUTH_INVALID')
+
+  // EOA ecrecover first
+  try {
+    const recovered = await recoverMessageAddress({ message, signature })
+    if (recovered.toLowerCase() === walletAddress.toLowerCase()) return
+  } catch {
+    /* try EIP-1271 below */
+  }
+
+  // Smart accounts (MetaMask AA): EIP-1271 via public client
+  try {
+    const chain = Number(chainId) === base.id ? base : baseSepolia
+    const rpc =
+      chain.id === base.id
+        ? process.env.BASE_RPC_URL || 'https://mainnet.base.org'
+        : process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org'
+    const client = createPublicClient({
+      chain,
+      transport: http(rpc),
+    })
+    const ok = await client.verifyMessage({
+      address: walletAddress,
+      message,
+      signature,
+    })
+    if (ok) return
+  } catch {
+    /* fall through */
+  }
+
+  throw new Error('AUTH_INVALID')
 }
 
 function resolveChain(chainId) {
@@ -196,7 +221,7 @@ async function sponsorUpload(body) {
   const bytes = decodePayload(data)
   validateSponsorPayload(bytes, contentType, byteCount)
 
-  await verifySponsorAuth(walletAddress, timestamp, signature, bytes)
+  await verifySponsorAuth(walletAddress, timestamp, signature, bytes, chainId)
 
   const walletKey = walletAddress.toLowerCase()
   if (!rateLimit(`wallet:${walletKey}`, RATE_MAX_PER_WALLET)) {
