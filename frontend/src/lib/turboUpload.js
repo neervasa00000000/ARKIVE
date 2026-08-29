@@ -2027,11 +2027,38 @@ export async function uploadBytesViaUserWallet(walletClient, data, opts = {}) {
 }
 
 /**
- * Feed uploads — credits-first user Turbo, silent sponsor fallback on payment/credit failures.
+ * Feed uploads — prefer app sponsor when configured (one signature), else user Turbo.
  * Vault must use uploadBytesViaUserWallet (user-paid encrypted storage).
  */
 export async function uploadFeedBytes(walletClient, data, opts = {}) {
   const feedOpts = { ...opts, fast: true }
+
+  // Sponsor-first for feed: avoids wallet-link / ETH / credit races that break short posts.
+  try {
+    const { checkSponsorHealth, sponsorFeedUpload } = await import('./sponsorUpload.js')
+    const health = await checkSponsorHealth()
+    if (health.ok && health.configured) {
+      console.info('[ARKIVE sponsor] feed using sponsor-first path')
+      feedOpts.onStep?.('Open MetaMask — approve sponsor upload signature…')
+      return await sponsorFeedUpload(walletClient, data, {
+        contentType: opts.contentType,
+        onStep: opts.onStep,
+        onSignPrompt: opts.onSignPrompt,
+      })
+    }
+  } catch (sponsorFirstError) {
+    if (!isSponsorEligibleFailure(sponsorFirstError) && !String(sponsorFirstError?.message || '').startsWith('SPONSOR_')) {
+      // User rejected sponsor auth — don't silently fall through to another MetaMask maze
+      const msg = sponsorFirstError?.message || String(sponsorFirstError)
+      if (msg.toLowerCase().includes('user rejected') || msg.toLowerCase().includes('user denied')) {
+        throw sponsorFirstError
+      }
+    }
+    console.info('[ARKIVE sponsor] sponsor-first failed — trying user Turbo', {
+      reason: sponsorFirstError?.message || String(sponsorFirstError),
+    })
+  }
+
   try {
     return await uploadBytesViaUserWallet(walletClient, data, feedOpts)
   } catch (error) {
