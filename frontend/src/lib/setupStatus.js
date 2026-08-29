@@ -196,6 +196,15 @@ export function vaultErrorMessage(error) {
       if (detail === 'AUTH_INVALID' || detail === 'AUTH_EXPIRED') {
         return 'Sponsor auth failed. Open MetaMask and approve the sponsor signature, then retry.'
       }
+      if (detail === 'CORS_DENIED') {
+        return 'This site origin is not allowed for sponsored uploads. Ask the host to update SPONSOR_ALLOWED_ORIGINS.'
+      }
+      if (detail === 'NETWORK_ERROR') {
+        return 'Could not reach the storage sponsor. Check your connection and retry.'
+      }
+      if (detail.startsWith('TURBO_UPLOAD_REJECTED')) {
+        return 'Sponsored storage rejected the upload (credits or Turbo). Retry in a moment or top up the sponsor wallet.'
+      }
       if (
         detail === 'SPONSOR_INIT_FAILED' ||
         detail.startsWith('SPONSOR_HTTP_5') ||
@@ -207,7 +216,7 @@ export function vaultErrorMessage(error) {
       }
       return import.meta.env.DEV
         ? `Sponsor upload failed (${detail || 'unknown'}). Check console [ARKIVE sponsor] and restart npm run dev.`
-        : 'Upload failed. Try again in a moment.'
+        : `Upload failed (${detail || 'unknown'}). Open the browser console for [ARKIVE sponsor], then retry.`
     }
     if (code.includes('Failed to submit fund transaction')) {
       return 'Turbo is still processing your ETH payment. Wait 1–2 minutes and try again — do not pay twice.'
