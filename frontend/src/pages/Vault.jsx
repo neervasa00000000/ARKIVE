@@ -37,7 +37,7 @@ function DemoVaultPage() {
         <EmptyState
           icon={Lock}
           title="Vault is empty"
-          description="Seal a file — it encrypts on your device, then lives on Arweave forever."
+          description="Seal a file — it encrypts on your device, then uploads to testnet storage. Keep your original."
           action={(
             <button type="button" onClick={() => setShowSeal(true)} className="btn-primary btn-primary-sm">
               <Upload size={17} />
@@ -79,7 +79,7 @@ function LiveVaultPage() {
     <>
       <PageHeader
         title="Vault"
-        description="Only your wallet opens these files. Stored on Arweave forever."
+        description="Encrypted for authorised wallets. Testnet storage — keep an independent backup."
         action={(
           <button
             type="button"

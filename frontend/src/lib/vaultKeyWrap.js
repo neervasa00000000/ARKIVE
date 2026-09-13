@@ -30,6 +30,7 @@ export async function aesEncrypt(key, data) {
 }
 
 export async function aesDecrypt(key, encryptedBytes, iv) {
+  if (iv?.length !== 12 || encryptedBytes?.length < 16) throw new Error('INVALID_ENCRYPTED_DATA')
   return crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encryptedBytes)
 }
 
@@ -89,7 +90,12 @@ export async function unwrapFileKeyWithPassphrase(recoveryWrap, passphrase) {
     throw new Error('NO_RECOVERY_WRAP')
   }
   const salt = base64ToBytes(recoveryWrap.salt)
-  const iterations = Number(recoveryWrap.iterations) || PASSPHRASE_ITERATIONS
+  // Header values are attacker-controlled: bound CPU work before starting PBKDF2.
+  const iterations = recoveryWrap.iterations
+  if (!Number.isSafeInteger(iterations) || iterations < 100_000 || iterations > 1_000_000 || salt.length !== 16) {
+    throw new Error('INVALID_RECOVERY_PARAMETERS')
+  }
+  if (typeof passphrase !== 'string' || passphrase.length > 1024) throw new Error('INVALID_RECOVERY_PASSPHRASE')
   const wrapKey = await derivePassphraseKey(passphrase, salt, iterations)
   const iv = base64ToBytes(recoveryWrap.iv)
   const encrypted = base64ToBytes(recoveryWrap.encryptedAesKey)

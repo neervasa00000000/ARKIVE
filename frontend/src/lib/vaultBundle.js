@@ -2,14 +2,18 @@
  * Compact vault bundle for Arweave — raw encrypted bytes + JSON header (no base64 file bloat).
  * Magic ARKV | v3 | u32 header len | header JSON | encrypted file bytes
  */
-import { bytesToBase64, base64ToBytes } from './security.js'
+import { bytesToBase64 } from './security.js'
 
 export const VAULT_BUNDLE_MAGIC = new Uint8Array([0x41, 0x52, 0x4b, 0x56]) // ARKV
 export const VAULT_BUNDLE_VERSION = 3
+export const MAX_VAULT_HEADER_BYTES = 64 * 1024
+export const MAX_VAULT_BUNDLE_BYTES = 140 * 1024 * 1024
+
 export const VAULT_SCHEMA_V3 = 'ARKIVE_VAULT_BUNDLE_V3'
 
 export function encodeVaultBundle(header, encryptedFileBytes) {
   const headerBytes = new TextEncoder().encode(JSON.stringify(header))
+  if (headerBytes.length > MAX_VAULT_HEADER_BYTES) throw new Error('INVALID_VAULT_PAYLOAD')
   const out = new Uint8Array(4 + 1 + 4 + headerBytes.length + encryptedFileBytes.length)
   let o = 0
   out.set(VAULT_BUNDLE_MAGIC, o)
@@ -40,13 +44,14 @@ export function decodeVaultBundle(bytes) {
   if (!isVaultBundleBytes(bytes)) {
     throw new Error('INVALID_VAULT_PAYLOAD')
   }
-  const headerLen =
-    (bytes[5] << 24) | (bytes[6] << 16) | (bytes[7] << 8) | bytes[8]
+  const headerLen = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(5)
+  if (!headerLen || headerLen > MAX_VAULT_HEADER_BYTES) throw new Error('INVALID_VAULT_PAYLOAD')
   const headerStart = 9
   const headerEnd = headerStart + headerLen
-  if (headerEnd > bytes.length) throw new Error('INVALID_VAULT_PAYLOAD')
+  if (headerEnd + 16 > bytes.length) throw new Error('INVALID_VAULT_PAYLOAD')
 
   const header = JSON.parse(new TextDecoder().decode(bytes.subarray(headerStart, headerEnd)))
+  if (!header || typeof header !== 'object' || Array.isArray(header)) throw new Error('INVALID_VAULT_PAYLOAD')
   const encryptedFileBytes = bytes.subarray(headerEnd)
 
   const payload = {
@@ -72,6 +77,7 @@ export async function parseVaultArweaveResponse(response) {
 
 /** Parse vault payload from raw bytes (v3 bundle or legacy JSON). */
 export function parseVaultBytes(buf) {
+  if (!(buf instanceof Uint8Array) || buf.length > MAX_VAULT_BUNDLE_BYTES) throw new Error('INVALID_VAULT_PAYLOAD')
   if (isVaultBundleBytes(buf)) {
     return decodeVaultBundle(buf)
   }

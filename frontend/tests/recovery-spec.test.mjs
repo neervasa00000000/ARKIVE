@@ -30,7 +30,7 @@ test('withRecoverySpecFields stamps version', () => {
 
 test('offline package roundtrips with stamped archiveId', () => {
   const arweaveId = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG'
-  const ciphertext = new Uint8Array([1, 2, 3, 4, 5])
+  const ciphertext = new Uint8Array(32).fill(7)
   const header = {
     schema: VAULT_SCHEMA_V3,
     encryptedFileIv: 'AAAA',
@@ -42,7 +42,7 @@ test('offline package roundtrips with stamped archiveId', () => {
   assert.equal(parsed.recoverySpecVersion, '1')
   assert.equal(parsed.archiveId, arweaveId)
   assert.equal(parsed.storageLocations[0].uri, `arweave://${arweaveId}`)
-  assert.deepEqual(Array.from(parsed.encryptedFileBytes), [1, 2, 3, 4, 5])
+  assert.deepEqual(parsed.encryptedFileBytes, ciphertext)
 })
 
 test('suggestArkiveFileName is stable and safe', () => {

@@ -57,6 +57,37 @@ describe("ARKIVE — Full Test Suite", function () {
       ).to.be.revertedWith("Primary wallet already has maximum linked wallets");
     });
 
+    it("rejects zero-address links", async function () {
+      await expect(linker.connect(primary).requestLink(ethers.ZeroAddress)).to.be.revertedWith("Invalid primary wallet");
+    });
+
+    it("prevents an existing primary from becoming a secondary", async function () {
+      await linker.connect(secondary).requestLink(primary.address);
+      await linker.connect(primary).confirmLink(secondary.address);
+      await expect(linker.connect(primary).requestLink(stranger.address)).to.be.revertedWith("Primary has linked wallets");
+    });
+
+    it("rechecks the target when an old request is confirmed", async function () {
+      await linker.connect(secondary).requestLink(primary.address);
+      await linker.connect(primary).requestLink(stranger.address);
+      await linker.connect(stranger).confirmLink(primary.address);
+      await expect(linker.connect(primary).confirmLink(secondary.address)).to.be.revertedWith("Confirmer is a secondary");
+    });
+
+    it("prevents pending requests from creating identity cycles", async function () {
+      await linker.connect(primary).requestLink(secondary.address);
+      await linker.connect(secondary).requestLink(primary.address);
+      await linker.connect(primary).confirmLink(secondary.address);
+      await expect(linker.connect(secondary).confirmLink(primary.address)).to.be.revertedWith("Confirmer is a secondary");
+    });
+
+    it("rejects a secondary that gained children while its request was pending", async function () {
+      await linker.connect(secondary).requestLink(primary.address);
+      await linker.connect(tertiary).requestLink(secondary.address);
+      await linker.connect(secondary).confirmLink(tertiary.address);
+      await expect(linker.connect(primary).confirmLink(secondary.address)).to.be.revertedWith("Secondary has linked wallets");
+    });
+
     it("either party can unlink", async function () {
       await linker.connect(secondary).requestLink(primary.address);
       await linker.connect(primary).confirmLink(secondary.address);
@@ -146,11 +177,21 @@ describe("ARKIVE — Full Test Suite", function () {
       expect(strangerFiles.length).to.equal(0);
     });
 
-    it("rejects duplicate arweave id globally", async function () {
+    it("rejects duplicate arweave id within an identity", async function () {
       await vault.connect(primary).storeFile("enc-dup", "a.jpg", "image", "hash");
       await expect(
-        vault.connect(stranger).storeFile("enc-dup", "b.jpg", "image", "hash"),
+        vault.connect(primary).storeFile("enc-dup", "b.jpg", "image", "hash"),
       ).to.be.revertedWith("Arweave ID already stored");
+    });
+
+    it("third-party registration cannot reserve another owner's archive ID", async function () {
+      await vault.connect(stranger).storeFile("enc-public-id", "sealed-record", "other", "hash");
+      await expect(vault.connect(primary).storeFile("enc-public-id", "sealed-record", "other", "hash")).to.not.be.reverted;
+    });
+
+    it("strangers cannot delete another owner's record", async function () {
+      await vault.connect(primary).storeFile("enc123", "sealed-record", "other", "hash");
+      await expect(vault.connect(stranger).deleteFile(0)).to.be.revertedWith("Not authorised to delete this file");
     });
 
     it("locks wallet linker after config lock", async function () {

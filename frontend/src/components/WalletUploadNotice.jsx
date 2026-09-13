@@ -33,7 +33,7 @@ export function WalletUploadNotice({ context = 'vault' }) {
 export function VaultKeySignNotice() {
   return (
     <p className="font-body text-xs text-text-muted notice-inline">
-      First seal asks for a vault key signature (EIP-712) — not a transaction.
+      Your vault signature unlocks your file keys. Only approve it on your trusted ARKIVE site; another site requesting the same signature could decrypt your archives.
     </p>
   )
 }

@@ -1,11 +1,11 @@
 /**
  * User-paid Arweave uploads via Turbo SDK — Base Sepolia (`base-eth`).
- * Dev payment (Base Sepolia credits) + production upload (data actually lands on Arweave gateways).
+ * Development payment and upload endpoints, funded with test ETH.
  */
 import {
   TurboFactory,
   ExistingBalanceFunding,
-  defaultTurboConfiguration,
+  developmentTurboConfiguration,
 } from '@ardrive/turbo-sdk'
 import { setCachedBytes, warmArweaveCacheInBackground } from './arweaveCache'
 import { InjectedEthereumSigner, ArconnectSigner } from '@dha-team/arbundles'
@@ -22,7 +22,13 @@ const CHAIN_RPC = {
   [base.id]: 'https://mainnet.base.org',
 }
 /** Official Turbo base-eth destination — plain ETH transfers only */
-const TURBO_BASE_ETH_WALLET = '0x9B13eb5096264B12532b8C648Eba4A662b4078ce'
+async function getTurboPaymentAddress() {
+  const response = await fetch(`${TURBO_CONFIG.paymentServiceConfig.url}/info`, { signal: AbortSignal.timeout(TURBO_API_TIMEOUT_MS) })
+  if (!response.ok) throw new Error('TURBO_PAYMENT_SERVICE_UNAVAILABLE')
+  const address = (await response.json()).addresses?.['base-eth']
+  if (!/^0x[a-fA-F0-9]{40}$/.test(address || '')) throw new Error('TURBO_PAYMENT_ADDRESS_INVALID')
+  return address
+}
 
 const SUPPORTED_TURBO_CHAINS = {
   [baseSepolia.id]: baseSepolia,
@@ -31,7 +37,8 @@ const SUPPORTED_TURBO_CHAINS = {
 
 function resolveWalletChain(walletClient) {
   const id = walletClient?.chain?.id
-  return (id && SUPPORTED_TURBO_CHAINS[id]) || baseSepolia
+  if (id !== baseSepolia.id) throw new Error('WRONG_NETWORK')
+  return baseSepolia
 }
 
 function getTurboRpcUrl(chain) {
@@ -193,11 +200,11 @@ export function clearTurboClientCache() {
   feedPrepCache = null
 }
 
-/**
- * Production Turbo payment + upload (payment.ardrive.dev is offline — do not use developmentTurboConfiguration).
- * Base Sepolia ETH credits still work via token `base-eth` + gatewayUrl below.
- */
-const TURBO_CONFIG = defaultTurboConfiguration
+// Testnet payment credits and uploads must use the same environment.
+const TURBO_CONFIG = {
+  paymentServiceConfig: { url: import.meta.env.VITE_TURBO_PAYMENT_URL || developmentTurboConfiguration.paymentServiceConfig.url },
+  uploadServiceConfig: { url: import.meta.env.VITE_TURBO_UPLOAD_URL || developmentTurboConfiguration.uploadServiceConfig.url },
+}
 
 if (import.meta.env.DEV) {
   TurboFactory.setLogLevel('debug')
@@ -980,7 +987,7 @@ async function payForUploadCredits(turbo, walletClient, walletAddress, byteCount
     walletClient.sendTransaction({
       account: walletAddress,
       chain,
-      to: TURBO_BASE_ETH_WALLET,
+      to: await getTurboPaymentAddress(),
       value: ethWei,
     }),
     SIGN_TIMEOUT_MS,
@@ -1127,7 +1134,7 @@ function createEthereumWalletAdapter(walletClient, onStep, onSignPrompt) {
       },
       sendTransaction: async ({ to, value, data }) => {
         const payWei = toWeiBigInt(value)
-        const dest = to || TURBO_BASE_ETH_WALLET
+        const dest = to || await getTurboPaymentAddress()
         onStep?.('Step 1 of 2 — approve storage payment in MetaMask…')
         const hash = await withTimeout(
           walletClient.sendTransaction({
@@ -1232,7 +1239,7 @@ async function verifyDirectTurboPayment(txHash, chain = baseSepolia) {
   const client = getTurboPublicClient(chain)
   const tx = await client.getTransaction({ hash: txHash })
   const to = tx.to?.toLowerCase()
-  const expected = TURBO_BASE_ETH_WALLET.toLowerCase()
+  const expected = (await getTurboPaymentAddress()).toLowerCase()
   if (to !== expected || !tx.value || tx.value === 0n) {
     return {
       ok: false,
@@ -1339,6 +1346,7 @@ export async function ensureStorageCreditsReady(walletClient, byteCount, onStep,
 }
 
 export async function getTurboClient(walletClient, opts = {}) {
+  resolveWalletChain(walletClient)
   const address = walletClient?.account?.address?.toLowerCase()
   // Feed uploads use a no-retry client so a failed POST does not re-sign in a loop
   if (opts.fast === true) {
@@ -1367,12 +1375,13 @@ export async function createUserTurboClient(walletClient, opts = {}) {
     const uploadServiceConfig =
       opts.fast === true
         ? {
+            ...TURBO_CONFIG.uploadServiceConfig,
             retryConfig: {
               retries: FEED_UPLOAD_SDK_RETRIES,
               retryDelay: () => 0,
             },
           }
-        : undefined
+        : TURBO_CONFIG.uploadServiceConfig
     const turbo = TurboFactory.authenticated({
       ...TURBO_CONFIG,
       walletAdapter,
@@ -2031,52 +2040,9 @@ export async function uploadBytesViaUserWallet(walletClient, data, opts = {}) {
  * Vault must use uploadBytesViaUserWallet (user-paid encrypted storage).
  */
 export async function uploadFeedBytes(walletClient, data, opts = {}) {
-  const feedOpts = { ...opts, fast: true }
-
-  // Sponsor-first for feed: avoids wallet-link / ETH / credit races that break short posts.
-  try {
-    const { checkSponsorHealth, sponsorFeedUpload } = await import('./sponsorUpload.js')
-    const health = await checkSponsorHealth()
-    if (health.ok && health.configured) {
-      console.info('[ARKIVE sponsor] feed using sponsor-first path', {
-        base: health.base || '(same-origin)',
-      })
-      feedOpts.onStep?.('Open MetaMask — approve sponsor upload signature…')
-      return await sponsorFeedUpload(walletClient, data, {
-        contentType: opts.contentType,
-        onStep: opts.onStep,
-        onSignPrompt: opts.onSignPrompt,
-        sponsorBase: health.base,
-      })
-    }
-  } catch (sponsorFirstError) {
-    if (!isSponsorEligibleFailure(sponsorFirstError) && !String(sponsorFirstError?.message || '').startsWith('SPONSOR_')) {
-      // User rejected sponsor auth — don't silently fall through to another MetaMask maze
-      const msg = sponsorFirstError?.message || String(sponsorFirstError)
-      if (msg.toLowerCase().includes('user rejected') || msg.toLowerCase().includes('user denied')) {
-        throw sponsorFirstError
-      }
-    }
-    console.info('[ARKIVE sponsor] sponsor-first failed — trying user Turbo', {
-      reason: sponsorFirstError?.message || String(sponsorFirstError),
-    })
-  }
-
-  try {
-    return await uploadBytesViaUserWallet(walletClient, data, feedOpts)
-  } catch (error) {
-    if (!isSponsorEligibleFailure(error)) throw error
-    console.info('[ARKIVE sponsor] feed user upload failed — trying sponsor fallback', {
-      reason: error?.message || String(error),
-    })
-    feedOpts.onStep?.('Uploading…')
-    const { sponsorFeedUpload } = await import('./sponsorUpload.js')
-    return sponsorFeedUpload(walletClient, data, {
-      contentType: opts.contentType,
-      onStep: opts.onStep,
-      onSignPrompt: opts.onSignPrompt,
-    })
-  }
+  resolveWalletChain(walletClient)
+  // Keep the beta entirely on testnet; the sponsor server uses production storage.
+  return uploadBytesViaUserWallet(walletClient, data, { ...opts, fast: true })
 }
 
 export function canUploadViaWallet(walletClient) {
@@ -2120,17 +2086,7 @@ export async function retryFeedUploadAfterPayment(walletClient, payload, opts = 
       onSignPrompt: opts.onSignPrompt,
     })
   } catch (error) {
-    if (!isSponsorEligibleFailure(error)) throw error
-    console.info('[ARKIVE sponsor] feed retry failed — trying sponsor fallback', {
-      reason: error?.message || String(error),
-    })
-    opts.onStep?.('Uploading…')
-    const { sponsorFeedUpload } = await import('./sponsorUpload.js')
-    return sponsorFeedUpload(walletClient, data, {
-      contentType,
-      onStep: opts.onStep,
-      onSignPrompt: opts.onSignPrompt,
-    })
+    throw error
   }
 }
 

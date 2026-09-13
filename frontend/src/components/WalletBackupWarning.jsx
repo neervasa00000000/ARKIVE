@@ -6,7 +6,7 @@ export default function WalletBackupWarning({ onYes, onNo }) {
     <Modal onClose={onNo} zIndex="z-[60]">
       <ModalHeader
         title="Before you seal"
-        description="If you lose this wallet, you lose this vault. Forever. Have you backed up your seed phrase?"
+        description="Keep a wallet backup. Archives without a recovery passphrase or authorised backup wallet become inaccessible if you lose the owner wallet."
         icon={AlertTriangle}
       />
       <ModalFooter className="justify-stretch gap-3">

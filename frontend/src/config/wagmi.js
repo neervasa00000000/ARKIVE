@@ -21,6 +21,7 @@ export const hasWalletConnectCloudId =
 const sharedOptions = {
   chains: [baseSepolia],
   ssr: false,
+  transports: { [baseSepolia.id]: http(import.meta.env.VITE_BASE_SEPOLIA_RPC_URL || undefined) },
 }
 
 export const wagmiConfig = hasWalletConnectCloudId
@@ -32,7 +33,5 @@ export const wagmiConfig = hasWalletConnectCloudId
   : createConfig({
       ...sharedOptions,
       connectors: [injected()],
-      transports: {
-        [baseSepolia.id]: http(),
-      },
+
     })

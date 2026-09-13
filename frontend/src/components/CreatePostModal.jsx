@@ -96,7 +96,7 @@ export default function CreatePostModal({ onClose, onSuccess }) {
         pendingChain.contentType,
         tab === 'text' ? text.trim() : undefined,
       )
-      toast.success('Posted permanently to Arweave')
+      toast.success('Testnet post confirmed')
       setPendingChain(null)
       onSuccess?.(result)
     } catch (error) {
@@ -151,7 +151,7 @@ export default function CreatePostModal({ onClose, onSuccess }) {
       if (tab === 'image' && imageHash && address && result?.arweaveId) {
         rememberUpload(address, imageHash, result.arweaveId)
       }
-      toast.success('Posted permanently to Arweave')
+      toast.success('Testnet post confirmed')
       onSuccess?.(result)
     } catch (error) {
       setPrepStep('')
@@ -171,7 +171,7 @@ export default function CreatePostModal({ onClose, onSuccess }) {
       <Modal onClose={onClose}>
       <ModalHeader
         title="Create post"
-        description="Stored on Arweave forever. Cannot be deleted."
+        description="Public test post. Uploaded copies may remain accessible after posting."
         onClose={onClose}
       />
 
@@ -189,7 +189,7 @@ export default function CreatePostModal({ onClose, onSuccess }) {
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="What do you want to store permanently?"
+            placeholder="Write a public test post"
             maxLength={2000}
             rows={5}
             className="input-field resize-none min-h-[128px]"
@@ -301,7 +301,7 @@ export default function CreatePostModal({ onClose, onSuccess }) {
                   uploadStep?.toLowerCase().includes('signature')
                 ? 'Approve in MetaMask…'
                 : 'Uploading…'
-            : 'Post permanently'}
+            : 'Publish test post'}
         </button>
       </ModalFooter>
     </Modal>

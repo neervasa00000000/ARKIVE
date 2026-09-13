@@ -6,8 +6,8 @@ import { Lock, Globe, Shield } from 'lucide-react'
 const features = [
   {
     icon: Globe,
-    title: 'Permanent',
-    desc: 'Every byte lives on Arweave. No server can delete it.',
+    title: 'Testnet storage',
+    desc: 'Try encrypted storage with test files. Keep an independent backup.',
   },
   {
     icon: Shield,
@@ -17,7 +17,7 @@ const features = [
   {
     icon: Lock,
     title: 'Wallet-gated',
-    desc: 'Only your signature opens the vault. Nobody else.',
+    desc: 'Open with an authorised wallet or a configured recovery passphrase.',
   },
 ]
 
@@ -33,11 +33,11 @@ export default function Landing() {
           <h1 className="font-display text-[2.75rem] sm:text-5xl lg:text-[3.5rem] font-semibold text-ink leading-[1.08] tracking-tight mb-6">
             Upload once.
             <br />
-            <span className="text-muted">Keep forever.</span>
+            <span className="text-muted">Keep what matters.</span>
           </h1>
 
           <p className="text-muted text-lg sm:text-xl leading-relaxed mb-10 max-w-md mx-auto lg:mx-0">
-            A wallet-gated vault on Arweave. Seal files, post to a permanent feed — only you hold the keys.
+            An encrypted vault on testnet. Try it with test files and keep your originals. Long-term preservation is not yet available.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start">

@@ -1,3 +1,4 @@
+import { requireSuccessfulReceipt } from '../lib/transactionReceipt'
 import { useState } from 'react'
 import { useAccount, useWriteContract, useReadContract } from 'wagmi'
 import { waitForTransactionReceipt } from '@wagmi/core'
@@ -69,7 +70,7 @@ export function useWalletLinker() {
         functionName: 'requestLink',
         args: [primaryAddress],
       })
-      await waitForTransactionReceipt(wagmiConfig, { hash })
+      await requireSuccessfulReceipt(waitForTransactionReceipt, wagmiConfig, { hash })
       refetchPending()
       return { success: true }
     } finally {
@@ -87,7 +88,7 @@ export function useWalletLinker() {
         functionName: 'confirmLink',
         args: [secondaryAddress],
       })
-      await waitForTransactionReceipt(wagmiConfig, { hash })
+      await requireSuccessfulReceipt(waitForTransactionReceipt, wagmiConfig, { hash })
       refetchLinked()
       refetchPrimary()
       return { success: true }
@@ -104,7 +105,7 @@ export function useWalletLinker() {
         abi: WalletLinkerABI.abi,
         functionName: 'cancelLinkRequest',
       })
-      await waitForTransactionReceipt(wagmiConfig, { hash })
+      await requireSuccessfulReceipt(waitForTransactionReceipt, wagmiConfig, { hash })
       refetchPending()
     } finally {
       setLoading(false)
@@ -120,7 +121,7 @@ export function useWalletLinker() {
         functionName: 'unlinkWallet',
         args: [walletAddress],
       })
-      await waitForTransactionReceipt(wagmiConfig, { hash })
+      await requireSuccessfulReceipt(waitForTransactionReceipt, wagmiConfig, { hash })
       refetchLinked()
       refetchPrimary()
     } finally {
