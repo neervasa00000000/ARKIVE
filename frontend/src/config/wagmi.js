@@ -21,6 +21,7 @@ export const hasWalletConnectCloudId =
 const sharedOptions = {
   chains: [baseSepolia],
   ssr: false,
+  multiInjectedProviderDiscovery: true,
   transports: { [baseSepolia.id]: http(import.meta.env.VITE_BASE_SEPOLIA_RPC_URL || undefined) },
 }
 

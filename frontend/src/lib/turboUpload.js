@@ -1,3 +1,4 @@
+import { signWithSelectedWallet } from './selectedWalletSign.js'
 /**
  * User-paid Arweave uploads via Turbo SDK — Base Sepolia (`base-eth`).
  * Development payment and upload endpoints, funded with test ETH.
@@ -154,6 +155,7 @@ function extractTxHash(text) {
 /** Reuse Turbo client per wallet session — avoids re-init on every upload */
 let cachedTurboClient = null
 let cachedTurboWallet = null
+let cachedTurboWalletClient = null
 /** Short-lived balance hint — skip redundant Turbo API calls within a session */
 let sessionBalanceHint = null
 /** Feed modal prep — wallet link + credit check before submit */
@@ -197,6 +199,7 @@ async function getTurboBalanceCached(turbo, walletAddress) {
 export function clearTurboClientCache() {
   cachedTurboClient = null
   cachedTurboWallet = null
+  cachedTurboWalletClient = null
   feedPrepCache = null
 }
 
@@ -643,7 +646,7 @@ function isUserRejectedSign(error) {
  * - strings → EIP-191 personal_sign
  * - bytes   → EIP-191 over raw bytes (NOT sign raw hash without prefix)
  *
- * MetaMask smart accounts often ignore viem walletClient.signMessage — fall back to personal_sign.
+ * Use only the selected wallet client; failures must never change the signer.
  */
 async function signWithWalletClient(walletClient, message, onSignPrompt) {
   await promptBeforeBinarySignIfNeeded(message, onSignPrompt)
@@ -652,48 +655,14 @@ async function signWithWalletClient(walletClient, message, onSignPrompt) {
   const signViaWalletClient = () => {
     const signPromise =
       typeof message === 'string'
-        ? walletClient.signMessage({ account: address, message })
-        : walletClient.signMessage({
-            account: address,
-            message: { raw: toRawBytes(message) },
-          })
+        ? signWithSelectedWallet(walletClient, message)
+        : signWithSelectedWallet(walletClient, { raw: toRawBytes(message) })
     return withTimeout(signPromise, METAMASK_PROMPT_TIMEOUT_MS, 'WALLET_SIGN_TIMEOUT')
   }
 
-  const signViaEthereum = async (signerAddress) => {
-    const provider = typeof window !== 'undefined' ? window.ethereum : null
-    if (!provider?.request) throw new Error('WALLET_NOT_CONNECTED')
-    const hex = messageToPersonalSignHex(message)
-    const sig = await withTimeout(
-      provider.request({
-        method: 'personal_sign',
-        params: [hex, signerAddress],
-      }),
-      METAMASK_PROMPT_TIMEOUT_MS,
-      'WALLET_SIGN_TIMEOUT',
-    )
-    return sig
-  }
-
-  try {
-    return normalizeSignature(await signViaWalletClient())
-  } catch (firstError) {
-    if (isUserRejectedSign(firstError)) throw firstError
-    try {
-      return normalizeSignature(await signViaEthereum(address))
-    } catch (secondError) {
-      if (isUserRejectedSign(secondError)) throw secondError
-      const provider = typeof window !== 'undefined' ? window.ethereum : null
-      const accounts = provider?.request
-        ? await provider.request({ method: 'eth_accounts' }).catch(() => [])
-        : []
-      const owner = accounts?.[0]
-      if (owner && owner.toLowerCase() !== address.toLowerCase()) {
-        return normalizeSignature(await signViaEthereum(owner))
-      }
-      throw secondError
-    }
-  }
+  // Never retry through another provider or another account. A timeout can
+  // leave the original request pending, so a second prompt is unsafe too.
+  return normalizeSignature(await signViaWalletClient())
 }
 
 /** Load cached pubkey onto arbundles signer — avoids a second link signature on getNativeAddress */
@@ -1352,7 +1321,7 @@ export async function getTurboClient(walletClient, opts = {}) {
   if (opts.fast === true) {
     opts = { ...opts, fresh: true }
   }
-  if (address && cachedTurboClient && cachedTurboWallet === address && !opts.fresh) {
+  if (address && cachedTurboClient && cachedTurboWallet === address && cachedTurboWalletClient === walletClient && !opts.fresh) {
     return { turbo: cachedTurboClient, funding: 'base-sepolia-eth' }
   }
   const result = await createUserTurboClient(walletClient, opts)
@@ -1362,6 +1331,7 @@ export async function getTurboClient(walletClient, opts = {}) {
   if (address) {
     cachedTurboClient = result.turbo
     cachedTurboWallet = address
+    cachedTurboWalletClient = walletClient
   }
   return result
 }
@@ -2101,6 +2071,7 @@ export async function prepareFeedUpload(walletClient, onStep, byteCount = 512) {
   const cacheKey = `${key}:${uploadBytes}`
   if (
     feedPrepCache?.cacheKey === cacheKey &&
+    feedPrepCache.walletClient === walletClient &&
     Date.now() - feedPrepCache.at < 60_000
   ) {
     return feedPrepCache
@@ -2147,6 +2118,7 @@ export async function prepareFeedUpload(walletClient, onStep, byteCount = 512) {
   }
 
   feedPrepCache = {
+    walletClient,
     address: key,
     cacheKey,
     at: Date.now(),

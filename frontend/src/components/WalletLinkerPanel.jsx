@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link2, Link2Off, Plus, Clock, Shield, X, Check } from 'lucide-react'
 import { useWalletLinker } from '../hooks/useWalletLinker'
 import { useAccount } from 'wagmi'
@@ -33,7 +33,7 @@ function WalletRow({ address: addr, label, onUnlink, loading }) {
 }
 
 export function WalletLinkerPanel() {
-  const { address } = useAccount()
+  const { address, connector, chainId } = useAccount()
   const {
     linkedWallets,
     primaryWallet,
@@ -53,6 +53,12 @@ export function WalletLinkerPanel() {
   const [mode, setMode] = useState(null)
   const [inputAddress, setInputAddress] = useState('')
   const [confirmingAddress, setConfirmingAddress] = useState('')
+
+  useEffect(() => {
+    setMode(null)
+    setInputAddress('')
+    setConfirmingAddress('')
+  }, [address, connector?.uid])
 
   if (!contractsDeployed) {
     return (
@@ -174,7 +180,7 @@ export function WalletLinkerPanel() {
               key={w}
               address={w}
               label="linked"
-              onUnlink={handleUnlink}
+              onUnlink={isPrimary ? handleUnlink : undefined}
               loading={loading}
             />
           ))}
@@ -201,6 +207,8 @@ export function WalletLinkerPanel() {
         </div>
       )}
 
+      {chainId !== 84532 && <p role="status" className="text-sm text-amber-200 mb-3">Switch to Base Sepolia using the wallet button to manage links.</p>}
+
       {mode === 'request' && (
         <div className="mb-3 p-4 bg-surface-2 border border-line rounded-xl">
           <p className="text-muted text-xs mb-2 leading-relaxed">
@@ -208,6 +216,7 @@ export function WalletLinkerPanel() {
           </p>
           <input
             type="text"
+            aria-label="Primary wallet address"
             value={inputAddress}
             onChange={(e) => setInputAddress(e.target.value)}
             placeholder="0x..."
@@ -240,6 +249,7 @@ export function WalletLinkerPanel() {
           </p>
           <input
             type="text"
+            aria-label="Secondary wallet address"
             value={confirmingAddress}
             onChange={(e) => setConfirmingAddress(e.target.value)}
             placeholder="0x..."
@@ -265,16 +275,16 @@ export function WalletLinkerPanel() {
         </div>
       )}
 
-      {mode === null && (
+      {mode === null && chainId === 84532 && (
         <div className="flex gap-2 mt-2">
-          {canAddMore && !pendingRequest && (
+          {canAddMore && isPrimary && linkedWallets.length === 0 && !pendingRequest && (
             <button
               type="button"
               onClick={() => setMode('request')}
               className="flex-1 flex items-center justify-center gap-1.5 btn-secondary py-2 text-xs"
             >
               <Plus size={13} />
-              Link a wallet
+              Join a primary wallet
             </button>
           )}
           {isPrimary && (
@@ -302,8 +312,9 @@ export function WalletLinkerPanel() {
       )}
 
       <p className="font-mono text-faint text-xs mt-4 leading-relaxed">
-        All wallets in your identity share username, points, and vault on Base. Both wallets sign separate
-        transactions — no server involved.
+        Wallet linking shares your on-chain identity. Opening encrypted files still requires an authorized
+        decryption wallet or recovery passphrase. Request from the secondary wallet, then switch to the
+        primary wallet to confirm on Base Sepolia.
       </p>
     </div>
   )
