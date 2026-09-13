@@ -10,7 +10,7 @@ import { loadSponsorKey, createBoundedRateLimiter } from './sponsorPolicy.mjs'
  *   SPONSOR_ENABLED=true and SPONSOR_PRIVATE_KEY — dedicated local testnet key
  *   SPONSOR_PORT — default 8787
  *   SPONSOR_MAX_BYTES — default 10MB (feed image cap)
- *   TURBO_UPLOAD_URL — default https://upload.ardrive.dev
+ *   TURBO_UPLOAD_URL — default https://upload.services.ar-io.dev
  *
  * NOT PRODUCTION READY: public deployments are disabled until quotas/replay are durable.
  */
@@ -30,7 +30,7 @@ config({ path: resolve(sponsorModuleDir, '../.env') })
 const PORT = Number(process.env.PORT || process.env.SPONSOR_PORT || 8787)
 const HOST = process.env.SPONSOR_HOST || (process.env.RAILWAY_ENVIRONMENT || process.env.RENDER ? '0.0.0.0' : '127.0.0.1')
 const MAX_BYTES = Number(process.env.SPONSOR_MAX_BYTES || 10 * 1024 * 1024)
-const TURBO_UPLOAD_URL = (process.env.TURBO_UPLOAD_URL || 'https://upload.ardrive.dev').replace(/\/$/, '')
+const TURBO_UPLOAD_URL = (process.env.TURBO_UPLOAD_URL || 'https://upload.services.ar-io.dev').replace(/\/$/, '')
 const TURBO_TOKEN = 'base-eth'
 const usedAuthorizations = new Map()
 const AUTH_MAX_AGE_MS = 5 * 60 * 1000

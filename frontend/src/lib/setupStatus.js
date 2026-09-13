@@ -163,17 +163,20 @@ export function vaultErrorMessage(error) {
         'Step 2 failed — content is on Arweave but the blockchain transaction was not completed. Retry and approve the MetaMask transaction.'
       )
     }
+    if (code === 'TURBO_FREE_ALLOWANCE_EXHAUSTED') {
+      return 'The storage service declined the small-file upload allowance. No new payment was sent. Try an account with available storage credits.'
+    }
     if (code.startsWith('TURBO_UPLOAD_AFTER_PAYMENT')) {
-      return 'Uploading… If this persists, try again in a moment.'
+      return 'Storage upload failed after payment. Retry the upload once credits settle; do not send another payment.'
     }
     if (code.startsWith('TURBO_FUND_PENDING')) {
-      return 'Uploading… If this persists, try again in a moment.'
+      return 'Your storage payment is awaiting credit. Wait a minute before retrying.'
     }
     if (code.includes('TURBO_FUND_WRONG_TX')) {
-      return 'Uploading… If this persists, try again in a moment.'
+      return 'The storage service could not credit this transaction. Check its destination and network before making another payment.'
     }
     if (code.startsWith('TURBO_SMART_ACCOUNT_BLOCKED') || code.startsWith('TURBO_MISROUTE_BLOCKED')) {
-      return 'Uploading… If this persists, try again in a moment.'
+      return 'This wallet’s payment could not be processed safely. Use a standard Base Sepolia account.'
     }
     if (code.startsWith('SPONSOR_UPLOAD_FAILED')) {
       const detail = code.split(':').slice(1).join(':')
@@ -182,7 +185,7 @@ export function vaultErrorMessage(error) {
       }
       if (detail === 'SPONSOR_NOT_CONFIGURED') {
         return import.meta.env.DEV
-          ? 'Sponsor server has no DEPLOYER_PRIVATE_KEY. Add it to contracts/.env and restart npm run dev.'
+          ? 'Local sponsorship is disabled. Configure a separate SPONSOR_PRIVATE_KEY and SPONSOR_ENABLED only for local testing.'
           : 'Sponsored upload is not available right now. Try again later.'
       }
       if (
