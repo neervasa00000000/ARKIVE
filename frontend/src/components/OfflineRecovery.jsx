@@ -58,11 +58,11 @@ export default function OfflineRecovery() {
       <form onSubmit={recover} className="space-y-4" aria-busy={busy}>
         <div>
           <label htmlFor="offline-file" className="block text-sm mb-2">Archive file</label>
-          <input id="offline-file" type="file" accept=".arkive" required disabled={busy} onChange={(event) => { clearResult(); setFile(event.target.files?.[0] || null); setError('') }} className="w-full text-sm" />
+          <input id="offline-file" type="file" accept=".arkive" required disabled={busy} onChange={(event) => { clearResult(); setFile(event.target.files?.[0] || null); setError('') }} className="w-full text-sm text-muted file:mr-3 file:rounded-lg file:border file:border-line file:bg-surface-2 file:px-3 file:py-2 file:text-sm file:text-ink" />
         </div>
         <div>
           <label htmlFor="offline-passphrase" className="block text-sm mb-2">Recovery passphrase</label>
-          <input id="offline-passphrase" type="password" autoComplete="off" required maxLength={1024} disabled={busy} value={passphrase} onChange={(event) => setPassphrase(event.target.value)} className="input w-full" aria-describedby={error ? 'offline-error' : undefined} />
+          <input id="offline-passphrase" type="password" autoComplete="off" required maxLength={1024} disabled={busy} value={passphrase} onChange={(event) => setPassphrase(event.target.value)} className="input-field w-full" aria-describedby={error ? 'offline-error' : undefined} />
         </div>
         {error && <p id="offline-error" role="alert" className="text-red-400 text-sm">{error}</p>}
         <button type="submit" disabled={busy} className="btn-primary">{busy ? 'Decrypting…' : 'Decrypt archive'}</button>

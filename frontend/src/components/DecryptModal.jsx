@@ -1,37 +1,30 @@
 import { useState, useEffect } from 'react'
-import { Lock, Download, Shield, AlertTriangle } from 'lucide-react'
+import { Lock, Download, AlertTriangle } from 'lucide-react'
 import { useAccount } from 'wagmi'
 import { useVault } from '../hooks/useVault'
 import { vaultErrorMessage } from '../lib/setupStatus'
 import { sanitizeFileName, needsDownloadWarning } from '../lib/security'
-import { hasLocalVaultBundle } from '../lib/vaultLocal'
+import { Link } from 'react-router-dom'
 import { Modal, ModalHeader, ModalBody } from './Modal'
-import toast from 'react-hot-toast'
 
 export default function DecryptModal({ file, onClose }) {
   const { address } = useAccount()
   const { retrieveAndDecryptFile, loading, step } = useVault()
   const [decrypted, setDecrypted] = useState(null)
-  const [localReady, setLocalReady] = useState(null)
+  const [error, setError] = useState('')
   const [downloadConfirm, setDownloadConfirm] = useState(false)
 
   const arweaveId = file.encryptedArweaveId
 
-  useEffect(() => {
-    let cancelled = false
-    hasLocalVaultBundle(arweaveId).then((ok) => {
-      if (!cancelled) setLocalReady(ok)
-    })
-    return () => { cancelled = true }
-  }, [arweaveId])
+  useEffect(() => () => decrypted?.cleanup?.(), [decrypted])
 
   async function handleView() {
+    setError('')
     try {
       const result = await retrieveAndDecryptFile(arweaveId)
       setDecrypted(result)
-      toast.success('Unlocked')
     } catch (error) {
-      toast.error(vaultErrorMessage(error), { duration: 8000 })
+      setError(vaultErrorMessage(error))
     }
   }
 
@@ -66,8 +59,8 @@ export default function DecryptModal({ file, onClose }) {
   return (
     <Modal onClose={handleClose}>
       <ModalHeader
-        title={sanitizeFileName(file.fileName)}
-        description={decrypted ? 'Decrypted in this session only.' : `Sign with wallet ${walletShort} to unlock.`}
+        title={sanitizeFileName(decrypted?.fileName || file.fileName)}
+        description={decrypted ? 'Decrypted on this device.' : 'Approve a wallet signature to open this file.'}
         onClose={handleClose}
         icon={Lock}
       />
@@ -75,19 +68,8 @@ export default function DecryptModal({ file, onClose }) {
       <ModalBody>
         {!decrypted ? (
           <div className="space-y-4">
-            {localReady === false && (
-              <p className="status-pill status-pill-warn w-full text-left text-xs leading-relaxed">
-                No copy cached on this browser. Opening will try remote storage; keep this entry and your offline backup.
-              </p>
-            )}
-            {localReady === true && (
-              <p className="status-pill status-pill-ok w-full text-left text-xs">
-                Ready on this device — opens after you sign.
-              </p>
-            )}
-
             {loading && step && (
-              <div className="notice-inline flex items-center gap-3">
+              <div role="status" className="flex items-center gap-3 text-sm text-muted">
                 <div className="h-4 w-4 border-2 border-brand border-t-transparent rounded-full animate-spin shrink-0" />
                 <span className="font-mono text-[11px] text-text-secondary">{step}</span>
               </div>
@@ -103,21 +85,22 @@ export default function DecryptModal({ file, onClose }) {
               {loading ? 'Opening…' : 'Sign & view'}
             </button>
 
-            <div className="notice-inline">
-              <div className="flex items-start gap-2">
-                <Shield size={14} className="text-text-muted mt-0.5 shrink-0" />
-                <p className="font-mono text-[11px] text-text-muted leading-relaxed">
-                  Arweave ID: {arweaveId?.slice(0, 12)}…
-                </p>
+            {error && (
+              <div role="alert" className="text-sm leading-relaxed text-amber-200">
+                <p>{error}</p>
+                <Link to="/recover" className="underline inline-block mt-2">Use an offline backup</Link>
               </div>
-            </div>
+            )}
+            <details className="text-xs text-text-muted">
+              <summary className="cursor-pointer py-2 focus-visible:outline focus-visible:outline-2">File details</summary>
+              <dl className="space-y-2 mt-2">
+                <div><dt>Wallet</dt><dd className="font-mono">{walletShort}</dd></div>
+                <div><dt>Archive ID</dt><dd className="font-mono break-all select-all">{arweaveId}</dd></div>
+              </dl>
+            </details>
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="status-pill status-pill-ok w-fit mx-auto">
-              Verified {walletShort}
-            </p>
-
             {decrypted.fileType?.startsWith('image/') && (
               <img
                 src={decrypted.url}
@@ -159,12 +142,12 @@ export default function DecryptModal({ file, onClose }) {
             ) : (
               <button type="button" onClick={handleDownload} className="btn-primary w-full">
                 <Download size={16} />
-                Download {sanitizeFileName(decrypted.fileName)}
+                Download file
               </button>
             )}
 
             <p className="font-mono text-[11px] text-text-muted text-center">
-              Cleared from memory when you close this window
+              Close this window when you’re finished.
             </p>
           </div>
         )}

@@ -1,288 +1,72 @@
 import { useState } from 'react'
-import { Copy, Check, ExternalLink, Shield, Database, Lock, Globe, ChevronDown } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Copy, Check, ArrowUpRight } from 'lucide-react'
 import { CONTRACT_ADDRESSES } from '../config/contracts'
 
-const appTx = import.meta.env.VITE_ARWEAVE_APP_TX
-const ARKIVE_APP_ARWEAVE_TX = /^[A-Za-z0-9_-]{43}$/.test(appTx || '') ? appTx : 'PENDING_DEPLOYMENT'
-const recoveryTx = import.meta.env.VITE_ARWEAVE_RECOVERY_TX
-const RECOVERY_GUIDE_ARWEAVE_TX = /^[A-Za-z0-9_-]{43}$/.test(recoveryTx || '') ? recoveryTx : 'PENDING_DEPLOYMENT'
+const backupLinks = [
+  ['Open backup app', import.meta.env.VITE_ARWEAVE_APP_TX],
+  ['Open backup guide', import.meta.env.VITE_ARWEAVE_RECOVERY_TX],
+].filter(([, id]) => /^[A-Za-z0-9_-]{43}$/.test(id || ''))
 
-function CopyRow({ label, value, mono = true }) {
-  const [copied, setCopied] = useState(false)
-
-  function copy() {
-    navigator.clipboard.writeText(value)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+function CopyRow({ label, value }) {
+  const [status, setStatus] = useState('')
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value)
+      setStatus('Copied')
+    } catch {
+      setStatus('Select the address to copy it.')
+    }
   }
-
   return (
-    <div className="flex items-center justify-between py-2.5 border-b border-line last:border-b-0 gap-3">
-      <span className="text-muted text-xs shrink-0">{label}</span>
-      <div className="flex items-center gap-2 min-w-0">
-        <span className={`text-ink text-xs ${mono ? 'font-mono' : ''} truncate`}>
-          {value}
-        </span>
-        <button type="button" aria-label={`Copy ${label}`} onClick={copy} className="text-faint hover:text-ink transition-colors shrink-0">
-          {copied ? <Check size={14} className="text-ink" /> : <Copy size={14} />}
+    <div className="py-3 border-b border-line last:border-0">
+      <div className="flex items-center justify-between gap-3 mb-1">
+        <span className="text-muted text-xs">{label}</span>
+        <button type="button" aria-label={`Copy ${label}`} onClick={copy} className="btn-ghost p-2">
+          {status === 'Copied' ? <Check size={14} /> : <Copy size={14} />}
         </button>
       </div>
+      <p className="font-mono text-xs text-muted break-all select-all">{value}</p>
+      <span role="status" className="text-xs text-muted">{status}</span>
     </div>
   )
 }
 
-function Step({ number, title, description, code }) {
+export default function RecoveryGuide({ embedded = false, showRecoveryLink = true }) {
   return (
-    <div className="flex gap-4">
-      <div className="flex-shrink-0 h-7 w-7 rounded-full bg-surface-2 border border-line flex items-center justify-center font-mono text-xs text-muted font-medium">
-        {number}
-      </div>
-      <div className="flex-1 pb-5 last:pb-0">
-        <p className="font-display text-sm font-semibold text-ink mb-1">{title}</p>
-        <p className="text-muted text-sm leading-relaxed mb-2">{description}</p>
-        {code && (
-          <div className="bg-surface-2 border border-line rounded-xl p-3 font-mono text-xs text-ink/90 overflow-x-auto whitespace-pre-wrap break-all">
-            {code}
-          </div>
+    <div className={embedded ? '' : 'max-w-2xl mx-auto px-5 py-8'}>
+      {!embedded && <h1 className="page-title mb-6">Recovery</h1>}
+      <div className="panel p-5 sm:p-6">
+        <h3 className="font-display text-sm font-semibold text-ink">Keep a backup you control</h3>
+        <p className="text-muted text-sm leading-relaxed mt-2 max-w-lg">
+          Save your .arkive copy and keep your recovery passphrase separately.
+          You can also open files with a wallet authorised when they were stored.
+        </p>
+        {showRecoveryLink && (
+          <Link to="/recover" className="btn-primary btn-primary-sm mt-5 inline-flex">
+            Open an offline archive <ArrowUpRight size={15} aria-hidden="true" />
+          </Link>
         )}
+        <p className="text-muted text-xs leading-relaxed mt-4">
+          Without an authorised wallet or recovery passphrase, encrypted files cannot be recovered.
+        </p>
       </div>
-    </div>
-  )
-}
 
-function CollapsibleSection({ id, icon: Icon, title, description, defaultOpen = false, children }) {
-  const [open, setOpen] = useState(defaultOpen)
-
-  return (
-    <div id={id} className="panel overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between gap-3 p-5 text-left hover:bg-surface-2/50 transition-colors"
-        aria-expanded={open}
-      >
-        <div className="flex items-start gap-3 min-w-0">
-          {Icon && <Icon size={16} className="text-muted mt-0.5 shrink-0" />}
-          <div className="min-w-0">
-            <p className="font-display text-sm font-semibold text-ink">{title}</p>
-            {description && (
-              <p className="text-muted text-xs mt-1 leading-relaxed">{description}</p>
-            )}
-          </div>
-        </div>
-        <ChevronDown
-          size={16}
-          className={`text-faint shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
-        />
-      </button>
-      {open && <div className="px-5 pb-5 border-t border-line pt-4">{children}</div>}
-    </div>
-  )
-}
-
-const FAILURE_SCENARIOS = [
-  { scenario: 'ARKIVE website goes down', feed: true, vault: true, note: 'Use Arweave URL above' },
-  { scenario: 'ARKIVE company dissolved', feed: true, vault: true, note: 'Contracts and Arweave still running' },
-  { scenario: 'Lit Protocol goes down', feed: true, vault: true, note: 'Wallet fallback path works' },
-  { scenario: 'Arweave gateway down', feed: true, vault: true, note: 'Use alt gateway: g8way.io, gateway.irys.xyz' },
-  { scenario: 'Base network down', feed: true, vault: true, note: 'Use an offline archive or a known storage ID; network recovery is uncertain' },
-  { scenario: 'Seed phrase lost', feed: true, vault: false, note: 'Use a configured passphrase or backup wallet; otherwise access is lost' },
-]
-
-const MANUAL_RECOVERY_CODE = `// Step A: Fetch encrypted payload from Arweave
-const r = await fetch('https://arweave.net/[YOUR-ARWEAVE-TX-ID]')
-// v3 is binary ARKV, not JSON. Prefer the offline recovery form above.
-const bytes = new Uint8Array(await r.arrayBuffer())
-// Parse with parseVaultBytes(bytes) from the published recovery implementation.
-
-// Step B (v2 — sealed after EIP-712 update): signTypedData with domain:
-//   name: ARKIVE, version: 2, chainId: 84532, verifyingContract: VaultRegistry
-//   message: { purpose: 'VAULT_KEY_DERIVATION', wallet: '[YOUR-WALLET]' }
-
-// Step B (v1 legacy): personal_sign
-//   'ARKIVE_VAULT_KEY_DERIVATION_V1_DO_NOT_SIGN_IN_ANY_OTHER_CONTEXT'
-
-// Step C: keccak256(signature) → AES-256-GCM key
-// Step D–G: decrypt walletEncryptedAesKey, then encryptedFile`
-
-export default function RecoveryGuide({ embedded = false }) {
-  return (
-    <div className={embedded ? '' : 'max-w-2xl mx-auto px-5 sm:px-8 py-12'}>
-      {!embedded && (
-        <div className="page-head mb-10">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="h-10 w-10 rounded-xl bg-surface-2 border border-line flex items-center justify-center">
-              <Shield size={18} className="text-muted" />
-            </div>
-            <h1 className="page-title">Recovery Guide</h1>
-          </div>
-          <p className="page-desc max-w-xl">
-            Everything you need if ARKIVE disappears. Bookmark the Arweave URLs below — keep an independent encrypted backup.
-          </p>
-        </div>
-      )}
-
-      <div className="space-y-3">
-        <CollapsibleSection
-          id="recovery-urls"
-          icon={Globe}
-          title="Permanent App URLs"
-          description="Load the full app from Arweave — no ARKIVE server involved."
-          defaultOpen
-        >
-          <div className="space-y-1">
-            <CopyRow label="App on Arweave" value={ARKIVE_APP_ARWEAVE_TX === 'PENDING_DEPLOYMENT' ? 'Not deployed' : `https://arweave.net/${ARKIVE_APP_ARWEAVE_TX}`} />
-            <CopyRow
-              label="Recovery guide on Arweave"
-              value={RECOVERY_GUIDE_ARWEAVE_TX === 'PENDING_DEPLOYMENT' ? 'Not deployed' : `https://arweave.net/${RECOVERY_GUIDE_ARWEAVE_TX}`}
-            />
-
-          </div>
-          {ARKIVE_APP_ARWEAVE_TX !== 'PENDING_DEPLOYMENT' && (
-            <a
-              href={`https://arweave.net/${ARKIVE_APP_ARWEAVE_TX}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 btn-ghost px-3 py-1.5 text-xs mt-4"
-            >
-              <ExternalLink size={12} />
-              Open permanent app
+      <details className="mt-4 group">
+        <summary className="cursor-pointer text-sm text-muted hover:text-ink py-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">
+          Technical details
+        </summary>
+        <div className="mt-2 panel px-5 py-3">
+          <p className="text-muted text-xs leading-relaxed py-2">Base Sepolia · Testnet. These addresses help locate registry records; they do not unlock files.</p>
+          <CopyRow label="Vault registry" value={CONTRACT_ADDRESSES.VaultRegistry} />
+          <CopyRow label="Public post registry" value={CONTRACT_ADDRESSES.PostRegistry} />
+          {backupLinks.map(([label, id]) => (
+            <a key={id} href={`https://arweave.net/${id}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-muted py-3 underline">
+              {label}<ArrowUpRight size={14} aria-hidden="true" />
             </a>
-          )}
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          id="recovery-contracts"
-          icon={Database}
-          title="Contract Addresses (Base)"
-          description="Permanent smart contracts on Base. Read your data directly via basescan.org."
-        >
-          <CopyRow label="WalletLinker" value={CONTRACT_ADDRESSES.WalletLinker} />
-          <CopyRow label="UserRegistry" value={CONTRACT_ADDRESSES.UserRegistry} />
-          <CopyRow label="PostRegistry" value={CONTRACT_ADDRESSES.PostRegistry} />
-          <CopyRow label="VaultRegistry" value={CONTRACT_ADDRESSES.VaultRegistry} />
-          <CopyRow label="PointsSystem" value={CONTRACT_ADDRESSES.PointsSystem} />
-          <CopyRow label="Network" value="Base Sepolia (chainId: 84532) — mainnet: 8453" mono={false} />
-          {CONTRACT_ADDRESSES.PostRegistry !== '0x0000000000000000000000000000000000000000' && (
-            <a
-              href={`https://sepolia.basescan.org/address/${CONTRACT_ADDRESSES.PostRegistry}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-faint hover:text-ink transition-colors text-xs mt-4"
-            >
-              <ExternalLink size={12} />
-              View PostRegistry on Basescan
-            </a>
-          )}
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          id="recovery-feed"
-          title="Recovering Your Feed Posts"
-          description="Restore your feed from the permanent app or read contracts manually."
-        >
-          <Step
-            number="1"
-            title="Open the permanent app"
-            description="Go to the Arweave URL above. The full app loads without any ARKIVE server."
-          />
-          <Step
-            number="2"
-            title="Connect your wallet"
-            description="Use MetaMask or any wallet on Base network. Your wallet address IS your identity."
-          />
-          <Step
-            number="3"
-            title="Your posts load automatically"
-            description="The app reads PostRegistry smart contract and fetches each post from Arweave. Nothing is stored on any server."
-          />
-          <Step
-            number="4"
-            title="Manual reading (no app needed)"
-            description="Go to basescan.org. Search the PostRegistry address. Call getUserPostIds([your-wallet]). For each post ID call getPost(id) to get the Arweave transaction ID. Go to arweave.net/[id] to read the content directly."
-          />
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          id="recovery-vault"
-          icon={Lock}
-          title="Recovering Your Vault Files"
-          description="Decrypt vault files via the app or manual console recovery."
-        >
-          <Step
-            number="1"
-            title="Open the permanent app on Arweave"
-            description="Go to the permanent Arweave URL above. Full app works without ARKIVE."
-          />
-          <Step
-            number="2"
-            title="Connect the correct wallet"
-            description="Must be the same wallet that encrypted the files. A different wallet cannot decrypt them."
-          />
-          <Step
-            number="3"
-            title="Navigate to Vault page"
-            description="Your file list loads from VaultRegistry smart contract. Each file shows as a locked card."
-          />
-          <Step
-            number="4"
-            title="Click any file and sign to decrypt"
-            description="The app first tries Lit Protocol. If Lit is unavailable, it automatically uses wallet signature fallback. Both paths are built into every file."
-          />
-          <Step
-            number="5"
-            title="If both automatic paths fail — manual recovery"
-            description="Open browser console (F12). Run these commands one by one:"
-            code={MANUAL_RECOVERY_CODE}
-          />
-        </CollapsibleSection>
-
-        <div className="callout callout-warn">
-          <Shield size={18} className="text-amber-400 mt-0.5 shrink-0" />
-          <div>
-            <p className="font-display text-sm font-semibold text-amber-200 mb-1">
-              Keep your recovery options independent
-            </p>
-            <p className="text-sm leading-relaxed">
-              Keep your wallet backup and any recovery passphrase safe, separately from your encrypted .arkive copy. An authorised backup wallet can also open archives wrapped for it. Without any of these keys, recovery is impossible.
-            </p>
-          </div>
+          ))}
         </div>
-
-        <CollapsibleSection
-          id="recovery-failures"
-          title="What Each Failure Means For Your Data"
-          description="Quick reference for feed and vault availability by scenario."
-        >
-          <div className="space-y-3">
-            {FAILURE_SCENARIOS.map(({ scenario, feed, vault, note }) => (
-              <div
-                key={scenario}
-                className="flex items-center justify-between py-2 border-b border-line last:border-b-0 gap-4"
-              >
-                <div className="min-w-0">
-                  <p className="text-ink text-xs">{scenario}</p>
-                  <p className="font-mono text-faint text-xs truncate">{note}</p>
-                </div>
-                <div className="flex gap-3 shrink-0">
-                  <div className="text-center">
-                    <p className="font-mono text-xs text-faint mb-0.5">Feed</p>
-                    <span className={`font-mono text-xs font-bold ${feed ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {feed ? '✓' : '✗'}
-                    </span>
-                  </div>
-                  <div className="text-center">
-                    <p className="font-mono text-xs text-faint mb-0.5">Vault</p>
-                    <span className={`font-mono text-xs font-bold ${vault ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {vault ? '✓' : '✗'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CollapsibleSection>
-      </div>
+      </details>
     </div>
   )
 }

@@ -215,7 +215,7 @@ export default function Profile() {
       <section id="recovery" className="scroll-mt-8 pt-8 border-t border-line">
         <h2 className="page-title text-xl mb-2">Recovery</h2>
         <p className="page-desc mb-6">
-          Access your data if ARKIVE disappears. Bookmark the Arweave URLs below.
+          Keep access to your files with an independent backup.
         </p>
         <RecoveryGuide embedded />
       </section>
