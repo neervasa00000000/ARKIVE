@@ -23,9 +23,7 @@ import {
 import {
   uploadBytesViaUserWallet,
   estimateUploadCost,
-  ensureStorageCreditsReady,
   estimateBundleByteCount,
-  warmTurboWalletLink,
 } from '../lib/turboUpload'
 import { useTurboSignPrompt } from './useTurboSignPrompt'
 import { encodeVaultBundle, VAULT_SCHEMA_V3, parseVaultBytes } from '../lib/vaultBundle'
@@ -156,7 +154,6 @@ export function useVault() {
       }
 
       setStep('Open MetaMask — approve vault key signature…')
-      await warmTurboWalletLink(walletClient, setStep)
 
       setStep('Encrypting…')
       const [fileBytes, ownerDerivedKey, fileAesKey] = await Promise.all([
@@ -250,21 +247,12 @@ export function useVault() {
       const fastUpload = arweaveBundle.length <= 512 * 1024
       const uploadOpts = { fast: fastUpload }
 
-      setStep('Checking storage (approve ETH in MetaMask if needed)…')
       const fundingBytes = estimateBundleByteCount(arweaveBundle.length)
-      const creditPrep = await ensureStorageCreditsReady(
-        walletClient,
-        fundingBytes,
-        setStep,
-        uploadOpts,
-      )
 
       setStep('Step 1 of 2 — uploading to Arweave (signatures + ETH if needed)…')
       arweaveId = await uploadBytesViaUserWallet(walletClient, arweaveBundle, {
         contentType: 'application/octet-stream',
         cacheBytes: arweaveBundle.length <= 12 * 1024 * 1024 ? arweaveBundle : null,
-        creditsReady: true,
-        preparedFunding: creditPrep.preparedFunding,
         byteCount: fundingBytes,
         extraTags: [{ name: 'Encryption', value: 'dual-AES256GCM-Lit-WalletDerived' }],
         onStep: setStep,
