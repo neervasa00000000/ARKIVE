@@ -97,6 +97,7 @@ export async function getCachedBytes(txId) {
 
 // Turbo / Arweave gateways — skip hosts that often fail from browsers (g8way.io, ar-io.net).
 const GATEWAYS = [
+  (id) => `https://ar-io.dev/${id}`,
   ...(import.meta.env?.VITE_STORAGE_GATEWAY_URL ? [(id) => `${import.meta.env.VITE_STORAGE_GATEWAY_URL.replace(/\/$/, '')}/${id}`] : []),
   (id) => `https://turbo-gateway.ar.io/${id}`,
   (id) => `https://turbo-gateway.com/${id}`,

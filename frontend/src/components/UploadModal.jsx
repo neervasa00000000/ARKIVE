@@ -211,7 +211,7 @@ export default function UploadModal({ onClose, onSuccess }) {
       <Modal onClose={handleClose}>
       <ModalHeader
         title={preview ? 'Stored' : 'Store to vault'}
-        description={preview ? 'Saved to your vault.' : 'Encrypted on your device. Testnet storage is not permanent preservation.'}
+        description={preview ? 'Saved to your vault.' : 'Encrypted on your device. Testnet files expire after about 3 days. Keep your offline backup.'}
         onClose={handleClose}
         icon={Lock}
       />

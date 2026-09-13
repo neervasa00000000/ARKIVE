@@ -6,7 +6,6 @@ import { signWithSelectedWallet } from './selectedWalletSign.js'
 import {
   TurboFactory,
   ExistingBalanceFunding,
-  developmentTurboConfiguration,
 } from '@ardrive/turbo-sdk'
 import { setCachedBytes, warmArweaveCacheInBackground } from './arweaveCache'
 import { InjectedEthereumSigner, ArconnectSigner } from '@dha-team/arbundles'
@@ -205,8 +204,8 @@ export function clearTurboClientCache() {
 
 // Testnet payment credits and uploads must use the same environment.
 const TURBO_CONFIG = {
-  paymentServiceConfig: { url: import.meta.env.VITE_TURBO_PAYMENT_URL || developmentTurboConfiguration.paymentServiceConfig.url },
-  uploadServiceConfig: { url: import.meta.env.VITE_TURBO_UPLOAD_URL || developmentTurboConfiguration.uploadServiceConfig.url },
+  paymentServiceConfig: { url: import.meta.env.VITE_TURBO_PAYMENT_URL || 'https://payment.services.ar-io.dev' },
+  uploadServiceConfig: { url: import.meta.env.VITE_TURBO_UPLOAD_URL || 'https://upload.services.ar-io.dev' },
 }
 
 if (import.meta.env.DEV) {
@@ -1609,6 +1608,11 @@ export async function diagnoseTurboWallet(walletClient, byteCount = 50_000) {
 }
 
 async function resolveUploadFunding(turbo, walletClient, walletAddress, byteCount, onStep, opts) {
+  // Let the service apply its free allowance before consulting old payments.
+  // The signed bundle overhead is already included in byteCount.
+  if (byteCount <= 100 * 1024) {
+    return { fundingMode: new ExistingBalanceFunding(), neededWinc: '0', balance: { effectiveBalance: '0' } }
+  }
   const fast = opts.fast === true
   const validPrepared = normalizePreparedFunding(opts.preparedFunding)
 
@@ -1775,6 +1779,9 @@ export async function uploadBytesViaUserWallet(walletClient, data, opts = {}) {
         firstError?.message ||
         String(firstError)
       const creditFail = isUploadCreditFailure(firstError)
+      if (creditFail && fundingByteCount <= 100 * 1024) {
+        throw new Error('TURBO_FREE_ALLOWANCE_EXHAUSTED')
+      }
 
       if (msg.includes('Failed to submit fund transaction')) {
         console.warn('[ARKIVE Turbo] fund submit failed, recovering', msg)
