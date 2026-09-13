@@ -1,3 +1,4 @@
+import { signWithSelectedWallet } from './selectedWalletSign.js'
 /**
  * Client for app-sponsored feed uploads.
  * User signs EIP-191 "ARKIVE sponsor {timestamp} {sha256(data)}" — server pays Turbo storage.
@@ -116,7 +117,7 @@ export function buildSponsorAuthMessage(timestamp, bytes) {
   return `${SPONSOR_AUTH_PREFIX} ${timestamp} ${hash}`
 }
 
-/** Smart accounts often ignore viem signMessage — fall back to personal_sign like turboUpload.js */
+/** Sign with the selected wallet only; never fall back to a global provider. */
 async function signSponsorAuth(walletClient, bytes) {
   const timestamp = Date.now()
   const message = buildSponsorAuthMessage(timestamp, bytes)
@@ -126,46 +127,12 @@ async function signSponsorAuth(walletClient, bytes) {
 
   const signViaWalletClient = () =>
     withTimeout(
-      walletClient.signMessage({ account: address, message }),
+      signWithSelectedWallet(walletClient, message),
       METAMASK_PROMPT_TIMEOUT_MS,
       'WALLET_SIGN_TIMEOUT',
     )
 
-  const signViaEthereum = async (signerAddress) => {
-    const provider = typeof window !== 'undefined' ? window.ethereum : null
-    if (!provider?.request) throw new Error('WALLET_NOT_CONNECTED')
-    const hex = messageToPersonalSignHex(message)
-    return withTimeout(
-      provider.request({
-        method: 'personal_sign',
-        params: [hex, signerAddress],
-      }),
-      METAMASK_PROMPT_TIMEOUT_MS,
-      'WALLET_SIGN_TIMEOUT',
-    )
-  }
-
-  let signature
-  try {
-    signature = normalizeSignature(await signViaWalletClient())
-  } catch (firstError) {
-    if (isUserRejectedSign(firstError)) throw firstError
-    try {
-      signature = normalizeSignature(await signViaEthereum(address))
-    } catch (secondError) {
-      if (isUserRejectedSign(secondError)) throw secondError
-      const provider = typeof window !== 'undefined' ? window.ethereum : null
-      const accounts = provider?.request
-        ? await provider.request({ method: 'eth_accounts' }).catch(() => [])
-        : []
-      const owner = accounts?.[0]
-      if (owner && owner.toLowerCase() !== address.toLowerCase()) {
-        signature = normalizeSignature(await signViaEthereum(owner))
-      } else {
-        throw secondError
-      }
-    }
-  }
+  const signature = normalizeSignature(await signViaWalletClient())
 
   console.info('[ARKIVE sponsor] auth signature ok')
   return { timestamp, signature, walletAddress: address }

@@ -1,3 +1,4 @@
+import { isWalletRestoring } from '../lib/walletStartup'
 import { useCallback } from 'react'
 import { useAccount, useDisconnect } from 'wagmi'
 import { isDemoMode } from '../config/demo'
@@ -16,6 +17,7 @@ export function useWalletState() {
   if (isDemoMode) {
     return {
       isConnected: demo.isConnected,
+      isRestoring: false,
       address: demo.address,
       isDemoMode: true,
       connect: demo.connect,
@@ -25,6 +27,7 @@ export function useWalletState() {
 
   return {
     isConnected: wagmi.isConnected,
+    isRestoring: isWalletRestoring(wagmi.status),
     address: wagmi.address,
     isDemoMode: false,
     connect: null,

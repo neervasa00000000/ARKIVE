@@ -93,7 +93,6 @@ function LiveFeed() {
   useEffect(() => {
     if (!walletClient) return
     warmTurboForWallet(walletClient)
-    prepareFeedUpload(walletClient, () => {}).catch(() => {})
   }, [walletClient])
 
   const { data: recentPosts, refetch } = useReadContract({

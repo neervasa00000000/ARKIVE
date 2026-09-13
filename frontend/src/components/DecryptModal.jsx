@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Lock, Download, AlertTriangle } from 'lucide-react'
 import { useAccount } from 'wagmi'
 import { useVault } from '../hooks/useVault'
@@ -8,11 +8,23 @@ import { Link } from 'react-router-dom'
 import { Modal, ModalHeader, ModalBody } from './Modal'
 
 export default function DecryptModal({ file, onClose }) {
-  const { address } = useAccount()
+  const { address, connector } = useAccount()
   const { retrieveAndDecryptFile, loading, step } = useVault()
   const [decrypted, setDecrypted] = useState(null)
   const [error, setError] = useState('')
   const [downloadConfirm, setDownloadConfirm] = useState(false)
+
+  const session = `${connector?.uid || ''}:${address || ''}`
+  const activeSession = useRef(session)
+  activeSession.current = session
+  const requestVersion = useRef(0)
+  useEffect(() => {
+    requestVersion.current += 1
+    setDecrypted(null)
+    setError('')
+    setDownloadConfirm(false)
+    return () => { requestVersion.current += 1 }
+  }, [session])
 
   const arweaveId = file.encryptedArweaveId
 
@@ -20,11 +32,17 @@ export default function DecryptModal({ file, onClose }) {
 
   async function handleView() {
     setError('')
+    const version = ++requestVersion.current
+    const startedSession = session
     try {
       const result = await retrieveAndDecryptFile(arweaveId)
+      if (version !== requestVersion.current || startedSession !== activeSession.current) {
+        result.cleanup?.()
+        return
+      }
       setDecrypted(result)
     } catch (error) {
-      setError(vaultErrorMessage(error))
+      if (version === requestVersion.current && startedSession === activeSession.current) setError(vaultErrorMessage(error))
     }
   }
 
