@@ -19,3 +19,7 @@ Replaced obsolete SDK development endpoint defaults (`payment.ardrive.dev`, whic
 A live check with a throwaway wallet uploaded 7,168 synthetic bytes without payment and retrieved an exact byte match. Transaction ID: `03TGt9S8MCyJ0r_08L3TbnT1_78o-AZVg4azXRxkyiM`. This verifies the SDK/service round trip, not browser wallet prompts or vault contract registration. The script is `frontend/scripts/check-testnet-upload.mjs`.
 
 Small bundles now attempt service-side free/existing-credit upload before pending-payment checks; allowance rejection is explicit and does not trigger an automatic new payment. Replaced misleading “Uploading…” error messages with payment-specific failures. Hosting environment overrides must use the new endpoint URLs when deploying these changes.
+
+## Vault-specific follow-up
+
+The vault hook still called ensureStorageCreditsReady before the shared upload function, bypassing the new small-bundle allowance path. Removed that duplicate preflight and redundant storage-link signature; shared upload funding now runs once for both feed and vault. A live synthetic encrypted vault test uploaded 7,847 bytes and downloaded/decrypted the original 7,168 bytes exactly (archive ID `jr5ZGhNxrzXBQx2MNcPHiZgm03hYTY-0dGOxiXjfC-w`). No payment was sent. Frontend tests: 76 passed; production build passed. Browser wallet signing and final on-chain registration were not exercised by this synthetic check.
