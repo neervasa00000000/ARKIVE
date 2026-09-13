@@ -22,7 +22,7 @@ const App = lazy(() => import('./App'))
 const queryClient = new QueryClient()
 
 function AppLoader() {
-  return <Landing />
+  return <div className="app-bg min-h-screen flex items-center justify-center" role="status">Loading ARKIVE…</div>
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(

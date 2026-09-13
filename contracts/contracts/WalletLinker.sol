@@ -46,6 +46,8 @@ contract WalletLinker {
     }
 
     function requestLink(address primaryWallet) external {
+        require(primaryWallet != address(0), "Invalid primary wallet");
+        require(linkedWallets[msg.sender].length == 0, "Primary has linked wallets");
         require(msg.sender != primaryWallet, "Cannot link to yourself");
         require(primaryOf[msg.sender] == address(0), "Already linked to a primary wallet");
         require(primaryOf[primaryWallet] == address(0), "Target wallet is itself a secondary");
@@ -60,6 +62,9 @@ contract WalletLinker {
     }
 
     function confirmLink(address secondaryWallet) external {
+        // Recheck at confirmation: identity state can change after requestLink.
+        require(primaryOf[msg.sender] == address(0), "Confirmer is a secondary");
+        require(linkedWallets[secondaryWallet].length == 0, "Secondary has linked wallets");
         require(
             pendingLinks[secondaryWallet] == msg.sender,
             "No pending request from this wallet to you"

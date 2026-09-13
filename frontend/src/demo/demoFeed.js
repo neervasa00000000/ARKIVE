@@ -26,6 +26,6 @@ export const DEMO_POST_CONTENT = {
     text: 'Welcome to ARKIVE demo mode. Connect a wallet on Base Sepolia for live on-chain posts.',
   },
   'demo-feed-text-002': {
-    text: 'Every real post is stored on Arweave forever. Your wallet is the only key.',
+    text: 'Demo post. Real feed posts are public; testnet storage has no permanence guarantee.',
   },
 }

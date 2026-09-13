@@ -1,34 +1,17 @@
-/**
- * Production build gate — fails build if demo mode is on in production.
- * Set VITE_STRICT_PRODUCTION=false to skip (local preview only).
- */
-import { readFileSync, existsSync } from 'fs'
-import { join, dirname } from 'path'
-import { fileURLToPath } from 'url'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const envPath = join(__dirname, '../.env')
-
-if (process.env.VITE_STRICT_PRODUCTION === 'false') {
-  console.log('[check-production-env] Skipped (VITE_STRICT_PRODUCTION=false)')
-  process.exit(0)
-}
-
-let envContent = ''
-if (existsSync(envPath)) {
-  envContent = readFileSync(envPath, 'utf8')
-}
-
-const demoMode = /VITE_DEMO_MODE\s*=\s*true/i.test(envContent)
-const demoUnset = !/VITE_DEMO_MODE\s*=/i.test(envContent)
-
-if (demoMode || demoUnset) {
-  console.error(
-    '\n[ARKIVE SECURITY] Production build blocked.\n' +
-      'Set VITE_DEMO_MODE=false in frontend/.env before npm run build.\n' +
-      'For local dev builds only: VITE_STRICT_PRODUCTION=false npm run build\n',
-  )
+/** Use Vite's effective mode/env precedence, including deployment environment values. */
+import { loadEnv } from 'vite'
+const modeIndex = process.argv.indexOf('--mode')
+const mode = modeIndex >= 0 ? process.argv[modeIndex + 1] : 'production'
+const env = { ...loadEnv(mode || 'production', process.cwd(), ''), ...process.env }
+if (env.VITE_DEMO_MODE !== 'false') {
+  console.error('[ARKIVE SECURITY] Build blocked: set VITE_DEMO_MODE=false in the build environment.')
   process.exit(1)
 }
-
-console.log('[check-production-env] OK — demo mode disabled for production build')
+// VITE_ values are public. Never allow obvious credential/key names into the browser.
+const secretName = /(?:PRIVATE_KEY|SECRET|PASSWORD|MNEMONIC|DEPLOY_KEY|ARWEAVE_KEY|ACCESS_TOKEN)/i
+const exposed = Object.keys(env).filter((key) => key.startsWith('VITE_') && secretName.test(key) && env[key])
+if (exposed.length) {
+  console.error('[ARKIVE SECURITY] Remove server secrets from public variables:', exposed.join(', '))
+  process.exit(1)
+}
+console.log('[check-production-env] OK — effective demo and public-secret settings checked')

@@ -1,3 +1,4 @@
+import { readResponseBytes } from './boundedResponse.js'
 import { bytesToBase64, base64ToBytes } from './security.js'
 
 const DB_NAME = 'arkive-cache'
@@ -96,6 +97,7 @@ export async function getCachedBytes(txId) {
 
 // Turbo / Arweave gateways — skip hosts that often fail from browsers (g8way.io, ar-io.net).
 const GATEWAYS = [
+  ...(import.meta.env?.VITE_STORAGE_GATEWAY_URL ? [(id) => `${import.meta.env.VITE_STORAGE_GATEWAY_URL.replace(/\/$/, '')}/${id}`] : []),
   (id) => `https://turbo-gateway.ar.io/${id}`,
   (id) => `https://turbo-gateway.com/${id}`,
   (id) => `https://arweave.net/${id}`,
@@ -112,13 +114,13 @@ async function probeGatewayBytes(txId) {
   let saw404 = false
   for (const gateway of GATEWAYS) {
     try {
-      const response = await fetch(gateway(txId), { redirect: 'follow' })
+      const response = await fetch(gateway(txId), { redirect: 'follow', signal: AbortSignal.timeout(12000) })
       if (response.status === 404) {
         saw404 = true
         continue
       }
       if (!response.ok) continue
-      const bytes = new Uint8Array(await response.arrayBuffer())
+      const bytes = await readResponseBytes(response, 140 * 1024 * 1024)
       if (bytes.length === 0 || looksLikeHtmlError(bytes)) continue
       return bytes
     } catch {
@@ -137,7 +139,7 @@ async function fetchFromGateways(txId, parseResponse) {
   for (let round = 0; round < maxRounds; round++) {
     for (const gateway of GATEWAYS) {
       try {
-        const response = await fetch(gateway(txId), { redirect: 'follow' })
+        const response = await fetch(gateway(txId), { redirect: 'follow', signal: AbortSignal.timeout(12000) })
         if (response.status === 404) {
           saw404 = true
           continue
@@ -226,7 +228,7 @@ export async function fetchArweaveBytesFast(txId) {
           continue
         }
         if (!response.ok) continue
-        const bytes = new Uint8Array(await response.arrayBuffer())
+        const bytes = await readResponseBytes(response, 140 * 1024 * 1024)
         if (bytes.length === 0 || looksLikeHtmlError(bytes)) continue
         await setCachedBytes(txId, bytes)
         return { bytes, contentType: response.headers.get('content-type') || 'application/octet-stream' }
@@ -254,7 +256,7 @@ export async function fetchArweaveContent(txId) {
   }
 
   const result = await fetchFromGateways(txId, async (response, contentType) => {
-    const body = await response.text()
+    const body = new TextDecoder().decode(await readResponseBytes(response, 64 * 1024))
     if (!body) return null
     await setCachedContent(txId, body, contentType)
     return { body, cachedAt: Date.now() }

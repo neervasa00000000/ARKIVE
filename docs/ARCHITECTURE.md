@@ -114,3 +114,7 @@ When user-paid Turbo fails (e.g. smart-account ETH misroute), the frontend may f
 - Does **not** change vault encryption (vault remains user-paid and client-encrypted)
 
 See `DEPLOY.md` for hosting the sponsor process.
+
+## 2026-09-13 security review
+
+The current wallet testnet implementation is distinct from the proposed Capsule product. See SECURITY-MODEL.md, ENCRYPTION-DESIGN.md, DATA-MODEL.md, STORAGE-ARCHITECTURE.md, MVP-SCOPE.md and THREAT-MODEL.md for current boundaries and target design. PostgreSQL, email authentication, Stripe and guardian recovery are not implemented.

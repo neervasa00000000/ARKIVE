@@ -1,17 +1,18 @@
+import { loadSponsorKey, createBoundedRateLimiter } from './sponsorPolicy.mjs'
 /**
- * App-sponsored feed storage — deployer pays Turbo when user credits / ETH path fails.
+ * Local testnet sponsor prototype — an isolated sponsor key signs public feed uploads.
  * User still signs createPost on-chain; this endpoint only covers Arweave bytes.
  *
  * Intentionally does NOT import @ardrive/turbo-sdk (pulls Solana → rpc-websockets →
  * uuid ESM which crashes Vercel/Netlify serverless). Uses arbundles + Turbo HTTP API.
  *
  * Env (server-only, never VITE_):
- *   DEPLOYER_PRIVATE_KEY — from contracts/.env
+ *   SPONSOR_ENABLED=true and SPONSOR_PRIVATE_KEY — dedicated local testnet key
  *   SPONSOR_PORT — default 8787
  *   SPONSOR_MAX_BYTES — default 10MB (feed image cap)
- *   TURBO_UPLOAD_URL — default https://upload.ardrive.io
+ *   TURBO_UPLOAD_URL — default https://upload.ardrive.dev
  *
- * Production: deploy as serverless/Express with same env vars + rate limits.
+ * NOT PRODUCTION READY: public deployments are disabled until quotas/replay are durable.
  */
 import http from 'node:http'
 import { createHash } from 'node:crypto'
@@ -24,16 +25,14 @@ import { base, baseSepolia } from 'viem/chains'
 import { validateSponsorPayload } from '../src/lib/security.js'
 
 const sponsorModuleDir = dirname(fileURLToPath(import.meta.url))
-if (!process.env.DEPLOYER_PRIVATE_KEY?.trim()) {
-  config({ path: resolve(sponsorModuleDir, '../../contracts/.env') })
-  config({ path: resolve(sponsorModuleDir, '../.env') })
-}
+config({ path: resolve(sponsorModuleDir, '../.env') })
 
 const PORT = Number(process.env.PORT || process.env.SPONSOR_PORT || 8787)
 const HOST = process.env.SPONSOR_HOST || (process.env.RAILWAY_ENVIRONMENT || process.env.RENDER ? '0.0.0.0' : '127.0.0.1')
 const MAX_BYTES = Number(process.env.SPONSOR_MAX_BYTES || 10 * 1024 * 1024)
-const TURBO_UPLOAD_URL = (process.env.TURBO_UPLOAD_URL || 'https://upload.ardrive.io').replace(/\/$/, '')
+const TURBO_UPLOAD_URL = (process.env.TURBO_UPLOAD_URL || 'https://upload.ardrive.dev').replace(/\/$/, '')
 const TURBO_TOKEN = 'base-eth'
+const usedAuthorizations = new Map()
 const AUTH_MAX_AGE_MS = 5 * 60 * 1000
 const SPONSOR_AUTH_PREFIX = 'ARKIVE sponsor'
 
@@ -57,28 +56,13 @@ function loadAllowedOrigins() {
 const ALLOWED_ORIGINS = loadAllowedOrigins()
 
 /** @type {Map<string, { count: number, resetAt: number }>} */
-const rateByKey = new Map()
 const RATE_WINDOW_MS = 60 * 60 * 1000
 const RATE_MAX_PER_IP = 30
 const RATE_MAX_PER_WALLET = 15
 
-function loadDeployerKey() {
-  const fromEnv = process.env.DEPLOYER_PRIVATE_KEY?.trim()
-  if (fromEnv && fromEnv !== 'your_private_key_here') return fromEnv
-  return null
-}
+function loadDeployerKey() { return loadSponsorKey() }
 
-function rateLimit(key, max) {
-  const now = Date.now()
-  const entry = rateByKey.get(key)
-  if (!entry || now > entry.resetAt) {
-    rateByKey.set(key, { count: 1, resetAt: now + RATE_WINDOW_MS })
-    return true
-  }
-  if (entry.count >= max) return false
-  entry.count++
-  return true
-}
+const rateLimit = createBoundedRateLimiter()
 
 function corsHeaders(origin) {
   const headers = {
@@ -119,6 +103,8 @@ function readJsonBody(req, maxBytes) {
 
 function decodePayload(dataB64) {
   if (!dataB64 || typeof dataB64 !== 'string') throw new Error('MISSING_DATA')
+  if (dataB64.length > Math.ceil(MAX_BYTES / 3) * 4) throw new Error('FILE_TOO_LARGE')
+  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(dataB64)) throw new Error('INVALID_BASE64')
   const buf = Buffer.from(dataB64, 'base64')
   if (buf.length === 0) throw new Error('EMPTY_DATA')
   if (buf.length > MAX_BYTES) throw new Error('FILE_TOO_LARGE')
@@ -126,6 +112,7 @@ function decodePayload(dataB64) {
 }
 
 async function verifySponsorAuth(walletAddress, timestamp, signature, payloadBytes, chainId = baseSepolia.id) {
+  resolveChain(chainId)
   if (!isAddress(walletAddress)) throw new Error('INVALID_WALLET')
   const ts = Number(timestamp)
   if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > AUTH_MAX_AGE_MS) {
@@ -151,7 +138,7 @@ async function verifySponsorAuth(walletAddress, timestamp, signature, payloadByt
         : process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org'
     const client = createPublicClient({
       chain,
-      transport: http(rpc),
+      transport: httpTransport(rpc),
     })
     const ok = await client.verifyMessage({
       address: walletAddress,
@@ -168,7 +155,6 @@ async function verifySponsorAuth(walletAddress, timestamp, signature, payloadByt
 
 function resolveChain(chainId) {
   const id = Number(chainId)
-  if (id === base.id) return base
   if (id === baseSepolia.id) return baseSepolia
   throw new Error('UNSUPPORTED_CHAIN')
 }
@@ -188,6 +174,7 @@ async function uploadSignedDataItem(rawBytes) {
       'content-length': String(rawBytes.length),
     },
     body: rawBytes,
+    signal: AbortSignal.timeout(45000),
   })
   const text = await res.text()
   let json
@@ -205,6 +192,8 @@ async function uploadSignedDataItem(rawBytes) {
 }
 
 async function sponsorUpload(body) {
+  if (!loadDeployerKey()) throw new Error('SPONSOR_NOT_CONFIGURED')
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('INVALID_BODY')
   const {
     walletAddress,
     chainId = baseSepolia.id,
@@ -227,6 +216,14 @@ async function sponsorUpload(body) {
   if (!rateLimit(`wallet:${walletKey}`, RATE_MAX_PER_WALLET)) {
     throw new Error('RATE_LIMIT_WALLET')
   }
+
+  // Single-process replay protection. Public deployment stays disabled until this is durable.
+  const now = Date.now()
+  for (const [key, expires] of usedAuthorizations) if (expires <= now) usedAuthorizations.delete(key)
+  const authKey = `${walletKey}:${timestamp}:${createHash('sha256').update(bytes).digest('hex')}`
+  if (usedAuthorizations.has(authKey)) throw new Error('AUTH_REPLAY')
+  if (usedAuthorizations.size >= 10000) throw new Error('RATE_LIMIT')
+  usedAuthorizations.set(authKey, Number(timestamp) + AUTH_MAX_AGE_MS)
 
   const signer = deployerSigner()
   const dataItem = createData(bytes, signer, {
@@ -268,7 +265,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     try {
-      const body = await readJsonBody(req, MAX_BYTES + 128 * 1024)
+      const body = await readJsonBody(req, Math.ceil(MAX_BYTES / 3) * 4 + 128 * 1024)
       console.info('[turboSponsor] sponsor-feed', {
         wallet: body.walletAddress?.slice(0, 10),
         bytes: body.byteCount,
@@ -311,7 +308,7 @@ const server = http.createServer(async (req, res) => {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (!loadDeployerKey()) {
-    console.warn('[turboSponsor] DEPLOYER_PRIVATE_KEY missing — sponsor uploads will return 503')
+    console.warn('[turboSponsor] Sponsorship disabled or isolated SPONSOR_PRIVATE_KEY missing — uploads will return 503')
   }
   server.on('error', (err) => {
     if (err?.code === 'EADDRINUSE') {

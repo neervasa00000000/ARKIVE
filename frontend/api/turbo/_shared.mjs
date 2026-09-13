@@ -1,3 +1,4 @@
+import { loadSponsorKey, createBoundedRateLimiter } from '../../server/sponsorPolicy.mjs'
 /**
  * Shared sponsor handlers for Vercel serverless (/api/turbo/*).
  */
@@ -7,7 +8,6 @@ import { fileURLToPath } from 'node:url'
 import { sponsorUpload } from '../../server/turboSponsor.mjs'
 
 const rootDir = dirname(fileURLToPath(import.meta.url))
-config({ path: resolve(rootDir, '../../../contracts/.env') })
 
 const MAX_BYTES = Number(process.env.SPONSOR_MAX_BYTES || 10 * 1024 * 1024)
 
@@ -31,28 +31,13 @@ function loadAllowedOrigins() {
 const ALLOWED_ORIGINS = loadAllowedOrigins()
 
 /** @type {Map<string, { count: number, resetAt: number }>} */
-const rateByKey = new Map()
 const RATE_WINDOW_MS = 60 * 60 * 1000
 const RATE_MAX_PER_IP = 30
 const RATE_MAX_PER_WALLET = 15
 
-function loadDeployerKey() {
-  const fromEnv = process.env.DEPLOYER_PRIVATE_KEY?.trim()
-  if (fromEnv && fromEnv !== 'your_private_key_here') return fromEnv
-  return null
-}
+function loadDeployerKey() { return loadSponsorKey() }
 
-function rateLimit(key, max) {
-  const now = Date.now()
-  const entry = rateByKey.get(key)
-  if (!entry || now > entry.resetAt) {
-    rateByKey.set(key, { count: 1, resetAt: now + RATE_WINDOW_MS })
-    return true
-  }
-  if (entry.count >= max) return false
-  entry.count++
-  return true
-}
+const rateLimit = createBoundedRateLimiter()
 
 export function corsHeaders(origin) {
   const headers = { 'Content-Type': 'application/json', Vary: 'Origin' }
@@ -110,7 +95,7 @@ export async function handleSponsorFeed(req, res) {
     }
 
     const body = req.body
-    const walletKey = body.walletAddress?.toLowerCase()
+    const walletKey = typeof body?.walletAddress === 'string' ? body.walletAddress.toLowerCase() : null
     if (walletKey && !rateLimit(`wallet:${walletKey}`, RATE_MAX_PER_WALLET)) {
       return sendJson(res, 429, { error: 'RATE_LIMIT_WALLET' }, origin)
     }

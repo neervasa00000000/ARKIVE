@@ -325,6 +325,9 @@ const VAULT_SCHEMAS = new Set([VAULT_SCHEMA, VAULT_SCHEMA_V3])
 const ALLOWED_BLOB_TYPES = new Set([
   'application/octet-stream',
   'application/pdf',
+  'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp',
+  'video/mp4', 'video/quicktime', 'video/webm',
+  'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/mp4',
 ])
 
 export function safeBlobMimeType(originalType) {
@@ -332,9 +335,6 @@ export function safeBlobMimeType(originalType) {
     return 'application/octet-stream'
   }
   const t = originalType.toLowerCase()
-  if (t.startsWith('image/') || t.startsWith('video/') || t.startsWith('audio/')) {
-    return originalType
-  }
   if (ALLOWED_BLOB_TYPES.has(t)) return originalType
   return 'application/octet-stream'
 }

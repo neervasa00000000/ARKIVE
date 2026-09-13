@@ -1,3 +1,4 @@
+import { requireSuccessfulReceipt } from '../lib/transactionReceipt'
 import { useState } from 'react'
 import { useAccount, useWriteContract, useChainId, useWalletClient } from 'wagmi'
 import { waitForTransactionReceipt } from '@wagmi/core'
@@ -8,7 +9,6 @@ import PostRegistryABI from '../contracts/PostRegistry.json'
 import { useArweave } from './useArweave'
 import { validatePostText, validatePostImageDeep, validateArweaveTxId } from '../lib/security'
 
-const CREATE_POST_RECEIPT_TIMEOUT_MS = 8_000
 
 function logTiming(phase, startedAt) {
   console.info('[ARKIVE timing]', phase, Math.round(performance.now() - startedAt))
@@ -92,13 +92,7 @@ export function usePosts() {
       setStep('')
       logTiming('createPostSubmitted', flowStart)
 
-      void waitForTransactionReceipt(wagmiConfig, {
-        hash,
-        chainId: baseSepolia.id,
-        timeout: CREATE_POST_RECEIPT_TIMEOUT_MS,
-      })
-        .then(() => logTiming('createPostReceipt', createStart))
-        .catch(() => {})
+      await requireSuccessfulReceipt(waitForTransactionReceipt, wagmiConfig, { hash })
 
       return { success: true, arweaveId, txHash: hash, optimisticPost }
     } catch (error) {
@@ -169,13 +163,7 @@ export function usePosts() {
       }
 
       setStep('')
-      void waitForTransactionReceipt(wagmiConfig, {
-        hash,
-        chainId: baseSepolia.id,
-        timeout: CREATE_POST_RECEIPT_TIMEOUT_MS,
-      })
-        .then(() => logTiming('createPostReceipt', createStart))
-        .catch(() => {})
+      await requireSuccessfulReceipt(waitForTransactionReceipt, wagmiConfig, { hash })
 
       return { success: true, arweaveId: safeId, txHash: hash, optimisticPost }
     } finally {
@@ -194,7 +182,7 @@ export function usePosts() {
       account: address,
       chain: baseSepolia,
     })
-    await waitForTransactionReceipt(wagmiConfig, { hash })
+    await requireSuccessfulReceipt(waitForTransactionReceipt, wagmiConfig, { hash })
   }
 
   async function retryPostUploadAfterPayment({ text, image }) {
@@ -249,6 +237,7 @@ export function usePosts() {
         ...(optimisticText ? { _optimisticText: optimisticText } : {}),
       }
 
+      await requireSuccessfulReceipt(waitForTransactionReceipt, wagmiConfig, { hash })
       setStep('')
       return { success: true, arweaveId, txHash: hash, optimisticPost }
     } catch (error) {

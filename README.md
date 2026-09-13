@@ -1,5 +1,7 @@
 # ARKIVE
 
+> **Testnet prototype — not production-ready.** Keep original files and an independent encrypted backup. Testnet uploads are not a permanence guarantee. See [security review and feature inventory](docs/SECURITY-REVIEW.md) for verified functionality, vulnerabilities fixed, and remaining release blockers. The Capsule/Stripe/email-auth product in the new brief is a future phase.
+
 **Your files shouldn't depend on our company existing.**
 
 ARKIVE is a self-custodied, encrypted personal vault. Files are encrypted in your browser before they leave the device, stored on decentralized networks (Arweave today), and indexed on Base. **No single company controls your files or holds the keys needed to read them** — including ARKIVE.

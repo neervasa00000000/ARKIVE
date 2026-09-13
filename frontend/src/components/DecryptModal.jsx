@@ -77,7 +77,7 @@ export default function DecryptModal({ file, onClose }) {
           <div className="space-y-4">
             {localReady === false && (
               <p className="status-pill status-pill-warn w-full text-left text-xs leading-relaxed">
-                No local copy on this browser — delete this entry and use Store file again.
+                No copy cached on this browser. Opening will try remote storage; keep this entry and your offline backup.
               </p>
             )}
             {localReady === true && (

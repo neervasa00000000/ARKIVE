@@ -1,5 +1,7 @@
+import { decryptVaultContent, decryptVaultWithPassphrase } from '../lib/vaultCrypto'
+import { requireSuccessfulReceipt } from '../lib/transactionReceipt'
 // frontend/src/hooks/useVault.js
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useAccount, useWalletClient, useWriteContract, useChainId } from 'wagmi'
 import { waitForTransactionReceipt } from '@wagmi/core'
 import { wagmiConfig } from '../config/wagmi'
@@ -26,7 +28,6 @@ import {
   warmTurboWalletLink,
 } from '../lib/turboUpload'
 import { useTurboSignPrompt } from './useTurboSignPrompt'
-import { optimizeImageBytes } from '../lib/imageOptimize'
 import { encodeVaultBundle, VAULT_SCHEMA_V3, parseVaultBytes } from '../lib/vaultBundle'
 import { loadVaultBundleBytes, rememberVaultBundle } from '../lib/vaultLocal'
 import {
@@ -69,6 +70,7 @@ export function useVault() {
   const { data: walletClient } = useWalletClient()
   const { writeContractAsync } = useWriteContract()
   const { onSignPrompt, SignPromptModal } = useTurboSignPrompt()
+  const pendingRegistration = useRef(null)
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState('')
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -117,6 +119,10 @@ export function useVault() {
         throw new Error('CONTRACTS_NOT_DEPLOYED')
       }
 
+      if (pendingRegistration.current?.file === file && pendingRegistration.current.owner === address.toLowerCase()) {
+        return await registerPendingVault()
+      }
+
       await validateSealFileDeep(file)
 
       const owner = normalizeEthAddress(address)
@@ -153,18 +159,18 @@ export function useVault() {
       await warmTurboWalletLink(walletClient, setStep)
 
       setStep('Encrypting…')
-      const [optimizedFile, ownerDerivedKey, fileAesKey] = await Promise.all([
-        file.arrayBuffer().then((b) => optimizeImageBytes({ bytes: new Uint8Array(b), mimeType: file.type })),
+      const [fileBytes, ownerDerivedKey, fileAesKey] = await Promise.all([
+        file.arrayBuffer().then((b) => new Uint8Array(b)),
         deriveKeyFromWalletV2(walletClient, owner),
         generateAesKey(),
       ])
-      const fileBytes = optimizedFile.bytes
       const rawFileAesKey = await exportRawKey(fileAesKey)
       const { encrypted: encryptedFile, iv: fileIv } = await aesEncrypt(fileAesKey, fileBytes)
       const contentHash = await sha256Hex(encryptedFile)
 
       const safeName = sanitizeFileName(file.name)
       const metaFields = {
+        originalContentHash: await sha256Hex(fileBytes),
         originalFileName: safeName,
         originalFileType: file.type,
         originalFileSize: fileBytes.length,
@@ -186,6 +192,8 @@ export function useVault() {
       if (recoveryPassphrase) {
         recoveryWrap = await wrapFileKeyForPassphrase(rawFileAesKey, recoveryPassphrase)
       }
+
+      rawFileAesKey.fill(0)
 
       const authorizedWallets = listAuthorizedWallets({
         encryptedByWallet: owner,
@@ -284,20 +292,7 @@ export function useVault() {
       setStep('Step 2 of 2 — approve on-chain vault record in MetaMask')
       const conditionsHash = `wallet:${owner}`
 
-      const hash = await writeContractAsync({
-        address: CONTRACT_ADDRESSES.VaultRegistry,
-        abi: VaultRegistryABI.abi,
-        functionName: 'storeFile',
-        args: [arweaveId, 'sealed-record', fileType, conditionsHash],
-        account: address,
-        chain: baseSepolia,
-      })
-
-      await waitForTransactionReceipt(wagmiConfig, { hash, chainId: baseSepolia.id })
-
-      setStep('')
-      setUploadProgress(0)
-      return {
+      const result = {
         success: true,
         arweaveId,
         fileName: safeName,
@@ -307,6 +302,9 @@ export function useVault() {
         offlinePackage,
         offlineFileName: suggestArkiveFileName(safeName, arweaveId),
       }
+      pendingRegistration.current = { file, owner, arweaveId, fileType, conditionsHash, result }
+      return await registerPendingVault()
+
     } catch (error) {
       setStep('')
       setUploadProgress(0)
@@ -317,7 +315,7 @@ export function useVault() {
         arweaveId.length > 20
       ) {
         throw new Error(
-          `CHAIN_REGISTER_FAILED:${arweaveId}:File is on Arweave but on-chain registration was cancelled. Click Encrypt & store again — you should not pay for storage again.`,
+          `CHAIN_REGISTER_FAILED:${arweaveId}:Upload succeeded but registration was cancelled. Retry with the same file to register without uploading again.`,
         )
       }
       console.error('Vault store failed:', error)
@@ -327,25 +325,31 @@ export function useVault() {
     }
   }
 
-  function encryptedFileBytesFromPayload(payload) {
-    return payload.encryptedFileBytes instanceof Uint8Array
-      ? payload.encryptedFileBytes
-      : base64ToBytes(payload.encryptedFile)
+  async function registerPendingVault() {
+    const pending = pendingRegistration.current
+    setStep('Approve or confirm the on-chain vault record…')
+    if (!pending.hash) {
+      pending.hash = await writeContractAsync({
+        address: CONTRACT_ADDRESSES.VaultRegistry,
+        abi: VaultRegistryABI.abi,
+        functionName: 'storeFile',
+        args: [pending.arweaveId, 'sealed-record', pending.fileType, pending.conditionsHash],
+        account: address,
+        chain: baseSepolia,
+      })
+    }
+    try {
+      await requireSuccessfulReceipt(waitForTransactionReceipt, wagmiConfig, { hash: pending.hash })
+    } catch (error) {
+      if (error.message?.startsWith('TRANSACTION_REVERTED')) pending.hash = null
+      throw error
+    }
+    pendingRegistration.current = null
+    setStep('')
+    return pending.result
   }
 
-  async function decryptContentWithFileKey(fileAesKey, payload) {
-    const encryptedFileBytes = encryptedFileBytesFromPayload(payload)
-    if (payload.contentHash) {
-      const hash = await sha256Hex(encryptedFileBytes)
-      if (hash !== payload.contentHash) throw new Error('CONTENT_HASH_MISMATCH')
-    }
-    const fileIv = base64ToBytes(payload.encryptedFileIv)
-    const decryptedBytes = new Uint8Array(
-      await aesDecrypt(fileAesKey, encryptedFileBytes, fileIv),
-    )
-    const meta = await decryptVaultMetadata(fileAesKey, payload)
-    return { decryptedBytes, meta, fileAesKey }
-  }
+  const decryptContentWithFileKey = decryptVaultContent
 
   async function decryptWithLit(payload) {
     if (!payload.litCiphertext) throw new Error('No Lit encryption data in payload')
@@ -389,12 +393,7 @@ export function useVault() {
     return decryptContentWithFileKey(fileAesKey, payload)
   }
 
-  async function decryptWithPassphrase(payload, passphrase) {
-    if (!payload.recoveryWrap) throw new Error('NO_RECOVERY_WRAP')
-    const rawFileAesKey = await unwrapFileKeyWithPassphrase(payload.recoveryWrap, passphrase)
-    const fileAesKey = await importRawKey(rawFileAesKey)
-    return decryptContentWithFileKey(fileAesKey, payload)
-  }
+  const decryptWithPassphrase = decryptVaultWithPassphrase
 
   async function retrieveAndDecryptFile(arweaveId, opts = {}) {
     const forceWalletFallback = opts === true || opts?.forceWalletFallback === true
@@ -479,7 +478,7 @@ export function useVault() {
         account: address,
         chain: baseSepolia,
       })
-      await waitForTransactionReceipt(wagmiConfig, { hash })
+      await requireSuccessfulReceipt(waitForTransactionReceipt, wagmiConfig, { hash })
       return { success: true }
     } finally {
       setLoading(false)

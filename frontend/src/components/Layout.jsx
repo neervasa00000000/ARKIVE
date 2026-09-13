@@ -2,35 +2,8 @@ import { SidebarNav, MobileNav } from './NavBar'
 import { AppWalletButton } from './DemoConnectButton'
 import PointsBadge from './PointsBadge'
 import Logo from './Logo'
-import { useEffect } from 'react'
-import { useWalletClient } from 'wagmi'
-import { warmTurboForWallet, prepareFeedUpload } from '../lib/turboUpload'
-import { checkSponsorHealth } from '../lib/sponsorUpload'
 
 export default function Layout({ children }) {
-  const { data: walletClient } = useWalletClient()
-
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      checkSponsorHealth().then(({ ok, configured }) => {
-        if (!ok) {
-          console.warn(
-            '[ARKIVE sponsor] Sponsor API unreachable. Restart with: cd frontend && npm run dev',
-          )
-        } else if (!configured) {
-          console.warn(
-            '[ARKIVE sponsor] DEPLOYER_PRIVATE_KEY missing in contracts/.env — sponsor uploads return 503',
-          )
-        }
-      })
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!walletClient) return
-    warmTurboForWallet(walletClient)
-    prepareFeedUpload(walletClient, () => {}).catch(() => {})
-  }, [walletClient])
 
   return (
     <div className="app-bg min-h-screen flex">
@@ -59,6 +32,7 @@ export default function Layout({ children }) {
         </header>
 
         <main className="flex-1 w-full max-w-3xl mx-auto px-5 sm:px-8 py-8 lg:py-12 pb-28 lg:pb-12">
+          <p className="notice-inline mb-5" role="note">Testnet beta. Use test files and keep your originals. Storage availability and long-term preservation are not guaranteed.</p>
           {children}
         </main>
 

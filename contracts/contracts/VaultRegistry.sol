@@ -89,11 +89,12 @@ contract VaultRegistry is SecureConfig {
             "Invalid file type"
         );
 
-        bytes32 arweaveHash = keccak256(bytes(encryptedArweaveId));
+        address primary = _resolvePrimary(msg.sender);
+        // A third party observing a pending upload must not reserve another owner's ID.
+        bytes32 arweaveHash = keccak256(abi.encode(primary, encryptedArweaveId));
         require(!storedArweaveHashes[arweaveHash], "Arweave ID already stored");
         storedArweaveHashes[arweaveHash] = true;
 
-        address primary = _resolvePrimary(msg.sender);
         require(userFileIds[primary].length < MAX_FILES_PER_USER, "File limit reached");
         _checkStoreRateLimit(primary);
 

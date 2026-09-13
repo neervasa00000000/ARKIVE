@@ -1,6 +1,11 @@
+/**
+ * NOT PRODUCTION READY: wallet-signature key management assumes signature secrecy
+ * and deterministic signing. EIP-712 does not bind this challenge to a web origin.
+ * Never log/store the signature; preserve stored domains for existing archives.
+ */
 import { keccak256, toBytes } from 'viem'
 import { baseSepolia } from 'viem/chains'
-import { CONTRACT_ADDRESSES } from '../config/contracts'
+import { CONTRACT_ADDRESSES } from '../config/contracts.js'
 
 /** @deprecated Legacy — decrypt only for payloads sealed before EIP-712 v2 */
 export const DERIVATION_MESSAGE_V1 =
@@ -81,6 +86,7 @@ export function getPayloadDerivationVersion(payload) {
   if (payload?.derivationMessage === DERIVATION_MESSAGE_V1) {
     return 'v1'
   }
+  if (payload?.derivationVersion || payload?.derivationMessage) throw new Error('UNSUPPORTED_KEY_DERIVATION')
   return 'v1'
 }
 
@@ -88,6 +94,7 @@ function resolveEip712DomainFromPayload(payload) {
   const stored = payload?.eip712Domain
   if (
     stored &&
+    stored.name === 'ARKIVE' && stored.version === '2' &&
     stored.chainId === 84532 &&
     typeof stored.verifyingContract === 'string' &&
     /^0x[a-fA-F0-9]{40}$/.test(stored.verifyingContract)
@@ -99,7 +106,7 @@ function resolveEip712DomainFromPayload(payload) {
       verifyingContract: stored.verifyingContract,
     }
   }
-  return buildEip712Domain()
+  throw new Error('INVALID_DERIVATION_DOMAIN')
 }
 
 /** Decrypt path picks v1 vs v2 from stored payload metadata */

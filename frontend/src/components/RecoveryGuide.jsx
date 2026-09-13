@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { Copy, Check, ExternalLink, Shield, Database, Lock, Globe, ChevronDown } from 'lucide-react'
 import { CONTRACT_ADDRESSES } from '../config/contracts'
 
-const ARKIVE_APP_ARWEAVE_TX = import.meta.env.VITE_ARWEAVE_APP_TX || 'PENDING_DEPLOYMENT'
-const RECOVERY_GUIDE_ARWEAVE_TX = import.meta.env.VITE_ARWEAVE_RECOVERY_TX || 'PENDING_DEPLOYMENT'
+const appTx = import.meta.env.VITE_ARWEAVE_APP_TX
+const ARKIVE_APP_ARWEAVE_TX = /^[A-Za-z0-9_-]{43}$/.test(appTx || '') ? appTx : 'PENDING_DEPLOYMENT'
+const recoveryTx = import.meta.env.VITE_ARWEAVE_RECOVERY_TX
+const RECOVERY_GUIDE_ARWEAVE_TX = /^[A-Za-z0-9_-]{43}$/.test(recoveryTx || '') ? recoveryTx : 'PENDING_DEPLOYMENT'
 
 function CopyRow({ label, value, mono = true }) {
   const [copied, setCopied] = useState(false)
@@ -21,7 +23,7 @@ function CopyRow({ label, value, mono = true }) {
         <span className={`text-ink text-xs ${mono ? 'font-mono' : ''} truncate`}>
           {value}
         </span>
-        <button type="button" onClick={copy} className="text-faint hover:text-ink transition-colors shrink-0">
+        <button type="button" aria-label={`Copy ${label}`} onClick={copy} className="text-faint hover:text-ink transition-colors shrink-0">
           {copied ? <Check size={14} className="text-ink" /> : <Copy size={14} />}
         </button>
       </div>
@@ -83,13 +85,15 @@ const FAILURE_SCENARIOS = [
   { scenario: 'ARKIVE company dissolved', feed: true, vault: true, note: 'Contracts and Arweave still running' },
   { scenario: 'Lit Protocol goes down', feed: true, vault: true, note: 'Wallet fallback path works' },
   { scenario: 'Arweave gateway down', feed: true, vault: true, note: 'Use alt gateway: g8way.io, gateway.irys.xyz' },
-  { scenario: 'Base network down', feed: true, vault: true, note: 'Temporary — Base will restart' },
-  { scenario: 'Seed phrase lost', feed: false, vault: false, note: 'No recovery possible — ever' },
+  { scenario: 'Base network down', feed: true, vault: true, note: 'Use an offline archive or a known storage ID; network recovery is uncertain' },
+  { scenario: 'Seed phrase lost', feed: true, vault: false, note: 'Use a configured passphrase or backup wallet; otherwise access is lost' },
 ]
 
 const MANUAL_RECOVERY_CODE = `// Step A: Fetch encrypted payload from Arweave
 const r = await fetch('https://arweave.net/[YOUR-ARWEAVE-TX-ID]')
-const payload = await r.json()
+// v3 is binary ARKV, not JSON. Prefer the offline recovery form above.
+const bytes = new Uint8Array(await r.arrayBuffer())
+// Parse with parseVaultBytes(bytes) from the published recovery implementation.
 
 // Step B (v2 — sealed after EIP-712 update): signTypedData with domain:
 //   name: ARKIVE, version: 2, chainId: 84532, verifyingContract: VaultRegistry
@@ -113,7 +117,7 @@ export default function RecoveryGuide({ embedded = false }) {
             <h1 className="page-title">Recovery Guide</h1>
           </div>
           <p className="page-desc max-w-xl">
-            Everything you need if ARKIVE disappears. Bookmark the Arweave URLs below — your data is yours forever.
+            Everything you need if ARKIVE disappears. Bookmark the Arweave URLs below — keep an independent encrypted backup.
           </p>
         </div>
       )}
@@ -127,12 +131,12 @@ export default function RecoveryGuide({ embedded = false }) {
           defaultOpen
         >
           <div className="space-y-1">
-            <CopyRow label="App on Arweave" value={`https://arweave.net/${ARKIVE_APP_ARWEAVE_TX}`} />
+            <CopyRow label="App on Arweave" value={ARKIVE_APP_ARWEAVE_TX === 'PENDING_DEPLOYMENT' ? 'Not deployed' : `https://arweave.net/${ARKIVE_APP_ARWEAVE_TX}`} />
             <CopyRow
               label="Recovery guide on Arweave"
-              value={`https://arweave.net/${RECOVERY_GUIDE_ARWEAVE_TX}`}
+              value={RECOVERY_GUIDE_ARWEAVE_TX === 'PENDING_DEPLOYMENT' ? 'Not deployed' : `https://arweave.net/${RECOVERY_GUIDE_ARWEAVE_TX}`}
             />
-            <CopyRow label="App via ArNS" value="https://arkive.ar.io" />
+
           </div>
           {ARKIVE_APP_ARWEAVE_TX !== 'PENDING_DEPLOYMENT' && (
             <a
@@ -237,11 +241,10 @@ export default function RecoveryGuide({ embedded = false }) {
           <Shield size={18} className="text-amber-400 mt-0.5 shrink-0" />
           <div>
             <p className="font-display text-sm font-semibold text-amber-200 mb-1">
-              Your seed phrase is your master key
+              Keep your recovery options independent
             </p>
             <p className="text-sm leading-relaxed">
-              12 words on paper, stored somewhere safe. That is the only thing that can access your ARKIVE data.
-              No seed phrase = no recovery. Back it up now — multiple copies, different locations.
+              Keep your wallet backup and any recovery passphrase safe, separately from your encrypted .arkive copy. An authorised backup wallet can also open archives wrapped for it. Without any of these keys, recovery is impossible.
             </p>
           </div>
         </div>

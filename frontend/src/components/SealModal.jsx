@@ -107,7 +107,7 @@ export default function SealModal({ onClose, onSuccess }) {
             phase === 'sealing'
               ? 'Encrypting and writing to Arweave…'
               : phase === 'complete'
-                ? 'This record is permanent.'
+                ? 'Testnet storage — keep an independent backup.'
                 : 'Encrypted on your device before it leaves your browser.'
           }
           onClose={onClose}
@@ -165,7 +165,7 @@ export default function SealModal({ onClose, onSuccess }) {
               <div className="dropzone-icon mx-auto mb-4 h-14 w-14">
                 <Lock size={26} />
               </div>
-              <p className="font-display text-lg font-semibold text-text-primary mb-1">Stored forever</p>
+              <p className="font-display text-lg font-semibold text-text-primary mb-1">Stored on testnet</p>
               <p className="font-body text-text-secondary text-sm">Last opened: never</p>
               {sealedRecord && (
                 <p className="font-mono text-[11px] text-text-muted mt-3 break-all px-2">

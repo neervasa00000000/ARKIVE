@@ -20,7 +20,7 @@ export default function PermanenceCertificate({ record, onClose }) {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>ARKIVE Permanence Certificate — ${safeName}</title>
+          <title>ARKIVE Prototype record summary — ${safeName}</title>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { font-family: Georgia, serif; color: #1a1a1a; padding: 48px; max-width: 700px; margin: 0 auto; }
@@ -42,14 +42,14 @@ export default function PermanenceCertificate({ record, onClose }) {
     win.print()
   }
 
-  const certUrl = `https://arkive.app/cert/${record.arweaveTxId}`
+  const certUrl = `ARKIVE prototype record: ${record.arweaveTxId}`
 
   return (
     <Modal onClose={onClose} size="max-w-lg" zIndex="z-[70]">
       <ModalHeader
-        title="Permanence Certificate"
+        title="Prototype record summary"
         onClose={onClose}
-        description="Proof your record lives on Arweave forever."
+        description="Prototype record summary. This is not a preservation guarantee."
       />
       <ModalBody>
         <div className="flex justify-end -mt-2 mb-4">
@@ -68,7 +68,7 @@ export default function PermanenceCertificate({ record, onClose }) {
           <div className="text-center border-b border-line pb-6 mb-6">
             <p className="font-display text-2xl tracking-[0.3em] text-ink">ARKIVE</p>
             <p className="font-mono text-xs text-faint tracking-widest uppercase mt-2">
-              Permanence Certificate
+              Prototype record summary
             </p>
           </div>
 
@@ -104,7 +104,7 @@ export default function PermanenceCertificate({ record, onClose }) {
               <span className="font-mono text-[9px] text-muted tracking-wider">SEALED</span>
             </div>
             <p className="text-faint text-xs leading-relaxed max-w-xs mx-auto">
-              This record is permanent. It cannot be removed from the blockchain. That is the point.
+              This prototype summary does not prove remote availability, redundancy, or permanent preservation.
             </p>
           </div>
         </div>

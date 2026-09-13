@@ -21,7 +21,7 @@ function FeedContent({ posts, contractsReady, onPost, onLike, onOpenCreate }) {
         description={
           isDemoMode
             ? 'Demo posts — connect on Base Sepolia for the live feed.'
-            : 'Every post is stored permanently on Arweave.'
+            : 'Public posts use testnet storage. Do not post private information.'
         }
         action={(
           <button
@@ -46,7 +46,7 @@ function FeedContent({ posts, contractsReady, onPost, onLike, onOpenCreate }) {
         <EmptyState
           icon={FileText}
           title="Nothing here yet"
-          description="Be the first to post something that stays forever."
+          description="Create a public test post."
           action={(
             <button type="button" onClick={onOpenCreate} className="btn-primary btn-primary-sm">
               <Plus size={17} />
