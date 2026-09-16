@@ -13,6 +13,7 @@ import { usePoints } from '../hooks/usePoints'
 import RecoveryGuide from '../components/RecoveryGuide'
 import PageHeader from '../components/PageHeader'
 import { WalletLinkerPanel } from '../components/WalletLinkerPanel'
+import OllamaSettings from '../components/OllamaSettings'
 import toast from 'react-hot-toast'
 
 const DEMO_PROFILE = {
@@ -210,6 +211,7 @@ export default function Profile() {
           </div>
 
           {!isDemoMode && <WalletLinkerPanel />}
+          <OllamaSettings />
       </div>
 
       <section id="recovery" className="scroll-mt-8 pt-8 border-t border-line">
