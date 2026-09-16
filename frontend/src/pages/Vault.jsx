@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAccount, useReadContract, useWalletClient } from 'wagmi'
-import { Upload, Lock, AlertTriangle } from 'lucide-react'
+import { Upload, Lock, AlertTriangle, FileText } from 'lucide-react'
+import NoteEditorModal from '../components/NoteEditor'
 import { CONTRACT_ADDRESSES } from '../config/contracts'
 import VaultRegistryABI from '../contracts/VaultRegistry.json'
 import VaultFileCard from '../components/VaultFileCard'
@@ -14,9 +15,14 @@ import { warmTurboForWallet } from '../lib/turboUpload'
 import { isDemoMode } from '../config/demo'
 import { useDemoVault } from '../context/DemoVaultContext'
 
+function HeaderActions({ children }) {
+  return <div className="flex flex-wrap gap-2">{children}</div>
+}
+
 function DemoVaultPage() {
   const { records, initVault, markOpened } = useDemoVault()
   const [showSeal, setShowSeal] = useState(false)
+  const [showNote, setShowNote] = useState(false)
 
   useEffect(() => { initVault() }, [initVault])
 
@@ -26,10 +32,16 @@ function DemoVaultPage() {
         title="Vault"
         description="Encrypted with your wallet. Retrieved only when you sign."
         action={(
-          <button type="button" onClick={() => setShowSeal(true)} className="btn-primary btn-primary-sm">
-            <Upload size={17} />
-            Seal record
-          </button>
+          <HeaderActions>
+            <button type="button" onClick={() => setShowNote(true)} className="btn-secondary btn-primary-sm">
+              <FileText size={17} />
+              New note
+            </button>
+            <button type="button" onClick={() => setShowSeal(true)} className="btn-primary btn-primary-sm">
+              <Upload size={17} />
+              Seal record
+            </button>
+          </HeaderActions>
         )}
       />
 
@@ -54,6 +66,7 @@ function DemoVaultPage() {
       )}
 
       {showSeal && <SealModal onClose={() => setShowSeal(false)} onSuccess={() => setShowSeal(false)} />}
+      {showNote && <NoteEditorModal onClose={() => setShowNote(false)} />}
     </>
   )
 }
@@ -62,6 +75,7 @@ function LiveVaultPage() {
   const { address, isConnected } = useAccount()
   const { data: walletClient } = useWalletClient()
   const [showUpload, setShowUpload] = useState(false)
+  const [showNote, setShowNote] = useState(false)
   const setup = getSetupStatus({ walletConnected: isConnected })
 
   useEffect(() => {
@@ -81,15 +95,25 @@ function LiveVaultPage() {
         title="Vault"
         description="Encrypted for authorised wallets. Testnet storage — keep an independent backup."
         action={(
-          <button
-            type="button"
-            onClick={() => setShowUpload(true)}
-            disabled={!setup.ready}
-            className="btn-primary btn-primary-sm disabled:opacity-40"
-          >
-            <Upload size={17} />
-            Store file
-          </button>
+          <HeaderActions>
+            <button
+              type="button"
+              onClick={() => setShowNote(true)}
+              className="btn-secondary btn-primary-sm"
+            >
+              <FileText size={17} />
+              New note
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowUpload(true)}
+              disabled={!setup.ready}
+              className="btn-primary btn-primary-sm disabled:opacity-40"
+            >
+              <Upload size={17} />
+              Store file
+            </button>
+          </HeaderActions>
         )}
       />
 
@@ -134,6 +158,12 @@ function LiveVaultPage() {
         <UploadModal
           onClose={() => setShowUpload(false)}
           onSuccess={() => { setShowUpload(false); refetch() }}
+        />
+      )}
+      {showNote && (
+        <NoteEditorModal
+          onClose={() => setShowNote(false)}
+          onSaved={() => { setShowNote(false); refetch() }}
         />
       )}
     </>

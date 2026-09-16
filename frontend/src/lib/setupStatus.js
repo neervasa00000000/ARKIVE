@@ -41,6 +41,17 @@ export function vaultErrorMessage(error) {
   const status = error?.status ?? error?.statusCode ?? error?.cause?.status
 
   const mapped = (() => {
+    if (
+      code === 'OLLAMA_UNREACHABLE' ||
+      code === 'OLLAMA_TIMEOUT' ||
+      code === 'OLLAMA_MODEL_MISSING' ||
+      code === 'OLLAMA_START_HINT'
+    ) {
+      return 'Start Ollama locally. Run: ollama pull qwen2.5:7b'
+    }
+    if (code === 'OLLAMA_ENDPOINT_NOT_LOCAL') {
+      return 'Ollama must stay on this computer (http://127.0.0.1:11434).'
+    }
     if (code === 'ARWEAVE_VERIFY_FAILED') {
       return 'Upload finished but the file is not on Arweave yet. Wait a minute and try sealing again.'
     }

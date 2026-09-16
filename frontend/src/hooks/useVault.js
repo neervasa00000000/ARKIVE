@@ -20,6 +20,7 @@ import {
   validateArweaveTxId,
   normalizeEthAddress,
 } from '../lib/security'
+import { decodeVaultBytesAsText, parseVaultNote } from '../lib/vaultNote'
 import {
   uploadBytesViaUserWallet,
   estimateUploadCost,
@@ -436,12 +437,16 @@ export function useVault() {
       const safeType = safeBlobMimeType(fileType)
       const blob = new Blob([decryptedBytes], { type: safeType })
       const url = URL.createObjectURL(blob)
+      const note = decryptedBytes[0] === 0x7b && decryptedBytes.length <= 102_048
+        ? parseVaultNote(decodeVaultBytesAsText(decryptedBytes))
+        : null
 
       setStep('')
       return {
         url,
         fileName: sanitizeFileName(fileName),
         fileType: safeType,
+        note,
         walletAddress: payload.encryptedByWallet || payload.walletAddress,
         cleanup: () => URL.revokeObjectURL(url),
       }
