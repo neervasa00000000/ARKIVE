@@ -12,7 +12,7 @@
     "deploy:arweave": "npm run build && node scripts/deploy-to-arweave.js",
     "test:security": "node --test tests/security.test.mjs tests/turbo-credits.test.mjs tests/sponsor-upload.test.mjs tests/vault-key-wrap.test.mjs tests/recovery-spec.test.mjs",
     "postinstall": "node scripts/pin-rpc-uuid.mjs",
-    "test": "node --test tests/security.test.mjs tests/turbo-credits.test.mjs tests/sponsor-upload.test.mjs tests/vault-key-wrap.test.mjs tests/recovery-spec.test.mjs tests/turbo-wallet-adapter.test.mjs tests/turbo-upload-funding.test.mjs tests/transaction-receipt.test.mjs tests/vault-roundtrip.test.mjs tests/sponsor-policy.test.mjs tests/bounded-response.test.mjs tests/vault-derivation.test.mjs tests/build-env.test.mjs tests/wallet-startup.test.mjs tests/multi-wallet.test.mjs"
+    "test": "node --test tests/security.test.mjs tests/turbo-credits.test.mjs tests/sponsor-upload.test.mjs tests/vault-key-wrap.test.mjs tests/recovery-spec.test.mjs tests/turbo-wallet-adapter.test.mjs tests/turbo-upload-funding.test.mjs tests/transaction-receipt.test.mjs tests/vault-roundtrip.test.mjs tests/sponsor-policy.test.mjs tests/bounded-response.test.mjs tests/vault-derivation.test.mjs tests/build-env.test.mjs tests/wallet-startup.test.mjs tests/multi-wallet.test.mjs tests/ollama-local.test.mjs tests/vault-note.test.mjs"
   },
   "dependencies": {
     "@ardrive/turbo-sdk": "^1.0.0",

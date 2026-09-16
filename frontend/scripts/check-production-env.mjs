@@ -9,9 +9,15 @@ if (env.VITE_DEMO_MODE !== 'false') {
 }
 // VITE_ values are public. Never allow obvious credential/key names into the browser.
 const secretName = /(?:PRIVATE_KEY|SECRET|PASSWORD|MNEMONIC|DEPLOY_KEY|ARWEAVE_KEY|ACCESS_TOKEN)/i
+const cloudLlm = /(?:OPENAI|ANTHROPIC|GEMINI|GOOGLE_AI|GROQ|COHERE|MISTRAL)/i
 const exposed = Object.keys(env).filter((key) => key.startsWith('VITE_') && secretName.test(key) && env[key])
 if (exposed.length) {
   console.error('[ARKIVE SECURITY] Remove server secrets from public variables:', exposed.join(', '))
+  process.exit(1)
+}
+const llmKeys = Object.keys(env).filter((key) => key.startsWith('VITE_') && cloudLlm.test(key) && String(env[key] || '').trim())
+if (llmKeys.length) {
+  console.error('[ARKIVE SECURITY] Cloud LLM keys are not used. Suggest talks only to local Ollama. Remove:', llmKeys.join(', '))
   process.exit(1)
 }
 console.log('[check-production-env] OK — effective demo and public-secret settings checked')

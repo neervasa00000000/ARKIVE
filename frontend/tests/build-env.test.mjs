@@ -17,6 +17,12 @@ test('server secrets with public prefixes fail without printing values', () => {
   assert.match(result.stderr, /VITE_PRIVATE_KEY/)
   assert.ok(!result.stderr.includes('synthetic-secret-value'))
 })
+test('cloud LLM keys are not accepted as public Vite env', () => {
+  const result = check({ VITE_DEMO_MODE: 'false', VITE_OPENAI_API_KEY: 'synthetic-secret-value' })
+  assert.notEqual(result.status, 0)
+  assert.match(result.stderr, /Cloud LLM keys/)
+  assert.ok(!result.stderr.includes('synthetic-secret-value'))
+})
 test('disabled demo mode passes without requiring a local .env edit', () => {
   assert.equal(check({ VITE_DEMO_MODE: 'false' }).status, 0)
 })

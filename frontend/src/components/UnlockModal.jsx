@@ -4,7 +4,9 @@ import { isDemoMode } from '../config/demo'
 import { simulateUnlockProgress } from '../demo/demoVault'
 import { useVault } from '../hooks/useVault'
 import { vaultErrorMessage } from '../lib/setupStatus'
+import { parseVaultNote } from '../lib/vaultNote'
 import { Modal, ModalHeader, ModalBody } from './Modal'
+import { UnlockedNotePane } from './NoteEditor'
 import toast from 'react-hot-toast'
 
 export default function UnlockModal({ record, onClose, onOpened }) {
@@ -19,11 +21,20 @@ export default function UnlockModal({ record, onClose, onOpened }) {
       await simulateUnlockProgress(() => {})
       await delay(800)
       setPhase('opening')
-      await delay(1000)
+      await delay(400)
+      let note = null
+      if (record._file && typeof record._file.text === 'function') {
+        try {
+          note = parseVaultNote(await record._file.text())
+        } catch {
+          note = null
+        }
+      }
       setDecrypted({
         fileName: record.fileName,
         url: null,
         fileType: record.fileType === 'image' ? 'image/png' : 'application/octet-stream',
+        note,
         demo: true,
       })
       setPhase('unlocked')
@@ -69,22 +80,29 @@ export default function UnlockModal({ record, onClose, onOpened }) {
     a.click()
   }
 
+  function lockNote() {
+    decrypted?.cleanup?.()
+    setDecrypted(null)
+    setPhase('locked')
+  }
+
   function handleClose() {
     decrypted?.cleanup?.()
+    setDecrypted(null)
     onClose()
   }
 
   const subtitles = {
-    locked: 'Your wallet proves ownership. Decryption stays on your device.',
+    locked: 'Your wallet proves ownership. Decryption stays on this device.',
     signing: 'Confirm in MetaMask…',
     opening: 'Decrypting…',
-    unlocked: record.fileName,
+    unlocked: decrypted?.note ? 'Decrypted on this device.' : record.fileName,
   }
 
   return (
-    <Modal onClose={handleClose}>
+    <Modal onClose={handleClose} size={decrypted?.note ? 'max-w-2xl' : 'max-w-lg'}>
       <ModalHeader
-        title={phase === 'unlocked' ? 'Unlocked' : 'Retrieve record'}
+        title={phase === 'unlocked' ? (decrypted?.note?.title || 'Unlocked') : 'Retrieve record'}
         description={subtitles[phase]}
         onClose={handleClose}
         icon={Lock}
@@ -127,7 +145,15 @@ export default function UnlockModal({ record, onClose, onOpened }) {
           </div>
         )}
 
-        {phase === 'unlocked' && (
+        {phase === 'unlocked' && decrypted?.note && (
+          <UnlockedNotePane
+            initialNote={decrypted.note}
+            onLock={lockNote}
+            onSaved={handleClose}
+          />
+        )}
+
+        {phase === 'unlocked' && !decrypted?.note && (
           <div className="text-center animate-fade-in space-y-4">
             <div className="dropzone-icon h-14 w-14 mx-auto">
               <FileText size={24} />

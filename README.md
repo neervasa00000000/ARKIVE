@@ -67,6 +67,7 @@ Public beta on Base Sepolia.
 
 ```
 ARKIVE/
+├── ai/                   ← optional local LoRA for labels (not required for Suggest)
 ├── README.md
 ├── DEPLOY.md             ← beta hosting
 ├── docs/
@@ -89,6 +90,49 @@ npm run dev            # Vite + sponsor plugin (see DEPLOY.md)
 ```
 
 Contracts: see `docs/BUILD-GUIDE.md`. Security model: `docs/SECURITY.md`. Architecture: `docs/ARCHITECTURE.md`.
+
+## Local title & tag suggestions (Ollama)
+
+This is **not** training. The editor calls a model on your Mac. No OpenAI / Anthropic / Gemini tokens. No cloud LLM bill.
+
+There is **no cloud-free public inference**. Each user must run Ollama locally. Hosted ARKIVE cannot see your notes and cannot substitute a cloud model.
+
+### Click-path test (Phase 1)
+
+```bash
+ollama pull qwen2.5:7b
+ollama run qwen2.5:7b "Return JSON only: {\"title\":\"t\",\"tags\":[\"a\"],\"summary\":\"s\"}"
+cd frontend && npm run dev
+```
+
+1. Open the app, go to Vault → **New note**.
+2. Paste a note (no secrets).
+3. Click **Suggest title & tags**.
+4. **Accept** (or **Edit**, then tweak) writes title, tags, and summary into the note.
+5. **Encrypt & store** uses the existing vault encrypt/save path.
+6. **Lock** clears suggestion plaintext from UI state.
+
+Optional: Profile → Local suggestions — enable toggle, model name, **Check Ollama**. After a local fine-tune, the model name can be `arkive-labels`. Default stays `qwen2.5:7b`.
+
+The app refuses any endpoint that is not `http://127.0.0.1:11434` or `http://localhost:11434`. Vault plaintext is sent only for the active note when you click Suggest.
+
+### Phase 1 acceptance
+
+- [x] Ollama running + model present → suggestions appear (after `ollama pull qwen2.5:7b`)
+- [x] Ollama stopped / model missing → exact error `Start Ollama locally. Run: ollama pull qwen2.5:7b`, fail-fast (~400ms), no hang
+- [x] Non-localhost endpoint rejected
+- [x] Accept updates note fields; Encrypt & store uses the existing vault path
+- [x] Lock clears suggestion plaintext from UI state
+- [x] Production build succeeds
+- [x] This repo does not require cloud AI keys for Suggest
+
+### Phase 2 — collect samples before training
+
+After Accept (or a manual correction), click **Export suggestion sample (local)**. That downloads one JSONL line. Nothing is uploaded. Real collections belong in `ai/datasets/collected/` (gitignored). Collect 20–50 corrected examples, then see [`ai/README.md`](ai/README.md).
+
+### Phase 3 — optional LoRA (not on the Suggest click path)
+
+Training is a separate step. See [`ai/README.md`](ai/README.md). You do not need it for v1. App default stays `qwen2.5:7b` until you switch the model name.
 
 ## Contact
 
