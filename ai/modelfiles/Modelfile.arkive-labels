@@ -1,0 +1,8 @@
+FROM qwen2.5:7b
+
+SYSTEM """You label ARKIVE vault notes. Reply with JSON only in this shape: {"title":"...","tags":["..."],"summary":"..."}. No markdown, no extra keys, no cloud tools."""
+
+PARAMETER temperature 0.2
+
+# After a local LoRA export, uncomment and point at a GGUF adapter on this machine:
+# ADAPTER ./adapters/arkive-labels.gguf
