@@ -6,7 +6,6 @@ import { vaultErrorMessage } from '../lib/setupStatus'
 import { sanitizeFileName, needsDownloadWarning } from '../lib/security'
 import { Link } from 'react-router-dom'
 import { Modal, ModalHeader, ModalBody } from './Modal'
-import { UnlockedNotePane } from './NoteEditor'
 
 export default function DecryptModal({ file, onClose }) {
   const { address, connector } = useAccount()
@@ -66,15 +65,8 @@ export default function DecryptModal({ file, onClose }) {
     performDownload()
   }
 
-  function lockNote() {
-    decrypted?.cleanup?.()
-    setDecrypted(null)
-    setError('')
-    setDownloadConfirm(false)
-  }
-
   function handleClose() {
-    lockNote()
+    decrypted?.cleanup?.()
     onClose()
   }
 
@@ -83,10 +75,10 @@ export default function DecryptModal({ file, onClose }) {
     : 'not connected'
 
   return (
-    <Modal onClose={handleClose} size={decrypted?.note ? 'max-w-2xl' : 'max-w-lg'}>
+    <Modal onClose={handleClose}>
       <ModalHeader
-        title={sanitizeFileName(decrypted?.note?.title || decrypted?.fileName || file.fileName)}
-        description={decrypted?.note ? 'Decrypted on this device. Suggestions stay on local Ollama.' : decrypted ? 'Decrypted on this device.' : 'Approve a wallet signature to open this file.'}
+        title={sanitizeFileName(decrypted?.fileName || file.fileName)}
+        description={decrypted ? 'Decrypted on this device.' : 'Approve a wallet signature to open this file.'}
         onClose={handleClose}
         icon={Lock}
       />
@@ -125,15 +117,6 @@ export default function DecryptModal({ file, onClose }) {
               </dl>
             </details>
           </div>
-        ) : decrypted.note ? (
-          <UnlockedNotePane
-            initialNote={decrypted.note}
-            onLock={lockNote}
-            onSaved={() => {
-              lockNote()
-              onClose()
-            }}
-          />
         ) : (
           <div className="space-y-4">
             {decrypted.fileType?.startsWith('image/') && (

@@ -56,6 +56,7 @@ export function decodeVaultBundle(bytes) {
 
   const payload = {
     ...header,
+    bundleVersion: bytes[4],
     schema: header.schema || VAULT_SCHEMA_V3,
     encryptedFileBytes,
   }

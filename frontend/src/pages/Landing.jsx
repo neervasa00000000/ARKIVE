@@ -1,7 +1,7 @@
 import WalletButton from '../components/WalletButton'
 import Logo from '../components/Logo'
 import { isDemoMode } from '../config/demo'
-import { Lock, Globe, Shield } from 'lucide-react'
+import { Lock, Globe, Shield, Box, Blocks, LockKeyhole } from 'lucide-react'
 
 const features = [
   {
@@ -23,24 +23,34 @@ const features = [
 
 export default function Landing() {
   return (
-    <div className="app-bg min-h-screen flex flex-col">
-      <header className="px-6 sm:px-10 py-6 max-w-6xl mx-auto w-full">
+    <div className="landing-shell app-bg min-h-screen flex flex-col">
+      <header className="landing-header px-6 sm:px-10 py-6 max-w-6xl mx-auto w-full">
         <Logo />
+        <span className="landing-network"><i /> {isDemoMode ? 'Demo network' : 'Base Sepolia'}</span>
       </header>
 
-      <main className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-14 lg:gap-20 px-6 sm:px-10 pb-24 max-w-6xl mx-auto w-full">
-        <div className="flex-1 text-center lg:text-left max-w-xl">
-          <h1 className="font-display text-[2.75rem] sm:text-5xl lg:text-[3.5rem] font-semibold text-ink leading-[1.08] tracking-tight mb-6">
+      <main className="landing-main flex-1 px-6 sm:px-10 max-w-6xl mx-auto w-full">
+        <div className="landing-scene" aria-hidden="true">
+          <span className="scene-line scene-line-one" />
+          <span className="scene-line scene-line-two" />
+          <span className="scene-node scene-node-local"><LockKeyhole size={16} /></span>
+          <span className="scene-node scene-node-store"><Box size={16} /></span>
+          <span className="scene-node scene-node-chain"><Blocks size={16} /></span>
+        </div>
+
+        <div className="landing-copy text-center max-w-3xl mx-auto">
+          <p className="landing-kicker">Encrypted permanence for what matters</p>
+          <h1 className="font-display text-[2.75rem] sm:text-5xl lg:text-[4.4rem] font-semibold text-ink leading-[1.04] mb-6">
             Upload once.
             <br />
-            <span className="text-muted">Keep what matters.</span>
+            <span>Keep what matters.</span>
           </h1>
 
-          <p className="text-muted text-lg sm:text-xl leading-relaxed mb-10 max-w-md mx-auto lg:mx-0">
+          <p className="text-muted text-base sm:text-lg leading-relaxed mb-8 max-w-xl mx-auto">
             An encrypted vault on testnet. Try it with test files and keep your originals. Long-term preservation is not yet available.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start">
+          <div className="flex flex-col sm:flex-row items-center gap-3 justify-center">
             <WalletButton label={isDemoMode ? 'Try demo' : 'Connect wallet'} />
             <a href="#how" className="btn-ghost text-sm">
               How it works
@@ -52,19 +62,14 @@ export default function Landing() {
               Demo mode — set VITE_DEMO_MODE=false for on-chain
             </p>
           )}
-        </div>
-
-        <div id="how" className="flex-1 w-full max-w-md lg:max-w-lg">
-          <div className="panel p-1">
+          <div id="how" className="landing-trust-band">
             {features.map(({ icon: Icon, title, desc }, i) => (
               <div
                 key={title}
-                className={`flex gap-4 p-5 rounded-2xl transition-colors ${
-                  i < features.length - 1 ? 'border-b border-line' : ''
-                }`}
+                className="landing-trust-item"
               >
-                <div className="h-10 w-10 rounded-xl bg-surface-2 border border-line flex items-center justify-center shrink-0">
-                  <Icon size={18} className="text-muted" strokeWidth={1.5} />
+                <div className={`landing-trust-icon landing-trust-icon-${i + 1}`}>
+                  <Icon size={17} strokeWidth={1.5} />
                 </div>
                 <div>
                   <p className="font-display font-medium text-ink text-sm mb-1">{title}</p>
@@ -74,7 +79,7 @@ export default function Landing() {
             ))}
           </div>
 
-          <p className="text-center lg:text-left text-faint text-xs font-mono mt-5">
+          <p className="text-center text-faint text-xs font-mono mt-4">
             Base · Arweave · wallet-derived encryption
           </p>
         </div>

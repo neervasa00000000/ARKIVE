@@ -11,8 +11,5 @@ frontend/dist/
 frontend/src/config/arweave-deployment.json
 cursor_arkive_mvp_build_specifications.md
 
-ai/adapters/
-ai/export/
-ai/datasets/prepared/
-ai/datasets/collected/*
-!ai/datasets/collected/.gitkeep
+# Local Netlify folder
+.netlify

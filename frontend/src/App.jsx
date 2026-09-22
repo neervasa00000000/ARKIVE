@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Navigate, Routes, Route } from 'react-router-dom'
 import { useWalletState } from './hooks/useWalletState'
 import Landing from './pages/Landing'
 import Logo from './components/Logo'
@@ -9,6 +9,7 @@ const Feed = lazy(() => import('./pages/Feed'))
 const Vault = lazy(() => import('./pages/Vault'))
 const Profile = lazy(() => import('./pages/Profile'))
 const Recovery = lazy(() => import('./pages/Recovery'))
+const Activity = lazy(() => import('./pages/Activity'))
 const Layout = lazy(() => import('./components/Layout'))
 
 function RecoveryShell({ children }) {
@@ -60,9 +61,12 @@ export default function App() {
             <Suspense fallback={<AppLoader />}>
               <Layout>
                 <Routes>
-                  <Route path="/" element={<Feed />} />
+                  <Route path="/" element={<Navigate to="/vault" replace />} />
                   <Route path="/vault" element={<Vault />} />
+                  <Route path="/activity" element={<Activity />} />
+                  <Route path="/community" element={<Feed />} />
                   <Route path="/profile" element={<Profile />} />
+                  <Route path="*" element={<Navigate to="/vault" replace />} />
                 </Routes>
               </Layout>
             </Suspense>

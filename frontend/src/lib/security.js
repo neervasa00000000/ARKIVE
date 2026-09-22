@@ -325,7 +325,6 @@ const VAULT_SCHEMAS = new Set([VAULT_SCHEMA, VAULT_SCHEMA_V3])
 const ALLOWED_BLOB_TYPES = new Set([
   'application/octet-stream',
   'application/pdf',
-  'application/json',
   'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp',
   'video/mp4', 'video/quicktime', 'video/webm',
   'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/mp4',

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useReadContract, useWalletClient } from 'wagmi'
-import { Plus, FileText } from 'lucide-react'
+import { Plus, FileText, Radio, ShieldCheck, Database } from 'lucide-react'
 import { CONTRACT_ADDRESSES } from '../config/contracts'
 import PostRegistryABI from '../contracts/PostRegistry.json'
 import PostCard from '../components/PostCard'
@@ -17,7 +17,8 @@ function FeedContent({ posts, contractsReady, onPost, onLike, onOpenCreate }) {
   return (
     <>
       <PageHeader
-        title="Feed"
+        eyebrow="Public ledger"
+        title="Community"
         description={
           isDemoMode
             ? 'Demo posts — connect on Base Sepolia for the live feed.'
@@ -55,10 +56,18 @@ function FeedContent({ posts, contractsReady, onPost, onLike, onOpenCreate }) {
           )}
         />
       ) : (
-        <div className="space-y-3">
-          {posts.map((post) => (
-            <PostCard key={post.id.toString()} post={post} onLike={onLike} />
-          ))}
+        <div className="feed-layout">
+          <div className="feed-list">
+            {posts.map((post) => (
+              <PostCard key={post.id.toString()} post={post} onLike={onLike} />
+            ))}
+          </div>
+          <aside className="community-rail" aria-label="Community network information">
+            <div className="community-rail-head"><Radio size={16} /><span><strong>Public signal</strong><small>Testnet community feed</small></span></div>
+            <div className="community-fact"><ShieldCheck size={15} /><span><strong>Wallet-authored</strong><small>Every post has a verifiable sender</small></span></div>
+            <div className="community-fact"><Database size={15} /><span><strong>Arweave-backed</strong><small>Content resolves from its storage ID</small></span></div>
+            <p>Community posts are public. Keep personal and recovery information inside your encrypted vault.</p>
+          </aside>
         </div>
       )}
 

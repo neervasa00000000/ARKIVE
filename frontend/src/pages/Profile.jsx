@@ -1,5 +1,6 @@
 import { useAccount, useReadContract, useWriteContract, useChainId } from 'wagmi'
 import { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { waitForTransactionReceipt } from '@wagmi/core'
 import { wagmiConfig } from '../config/wagmi'
 import { baseSepolia } from 'viem/chains'
@@ -13,7 +14,7 @@ import { usePoints } from '../hooks/usePoints'
 import RecoveryGuide from '../components/RecoveryGuide'
 import PageHeader from '../components/PageHeader'
 import { WalletLinkerPanel } from '../components/WalletLinkerPanel'
-import OllamaSettings from '../components/OllamaSettings'
+import RecoveryEvidencePanel from '../components/RecoveryEvidencePanel'
 import toast from 'react-hot-toast'
 
 const DEMO_PROFILE = {
@@ -24,6 +25,7 @@ const DEMO_PROFILE = {
 }
 
 export default function Profile() {
+  const location = useLocation()
   const wallet = useWalletState()
   const { address: wagmiAddress } = useAccount()
   const chainId = useChainId()
@@ -58,7 +60,7 @@ export default function Profile() {
         setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
       }
     }
-  }, [])
+  }, [location.hash])
 
   async function handleRegister() {
     if (!username.trim()) return
@@ -122,12 +124,13 @@ export default function Profile() {
   return (
     <div className="space-y-10">
       <PageHeader
-        title="Profile"
-        description={isDemoMode ? 'Demo wallet — explore without contracts' : 'Your on-chain identity'}
+        eyebrow="Identity and access"
+        title="Settings"
+        description={isDemoMode ? 'Demo identity, recovery, and wallet preferences.' : 'Manage your on-chain identity, wallets, and recovery options.'}
       />
 
-      <div className="space-y-3">
-        <div className="panel p-5">
+      <div className="settings-grid">
+        <div className="panel settings-wallet p-5">
           <p className="text-faint text-xs mb-2 uppercase tracking-wider">Wallet</p>
           <div className="flex items-center justify-between">
             <span className="font-mono text-sm text-ink">
@@ -145,7 +148,7 @@ export default function Profile() {
         </div>
 
           {!isRegistered ? (
-            <div className="panel p-6">
+            <div className="panel settings-identity p-6">
               <p className="font-display text-sm font-semibold text-ink mb-4">Choose your username</p>
               <div className="flex gap-3">
                 <input
@@ -169,7 +172,7 @@ export default function Profile() {
               </p>
             </div>
           ) : (
-            <div className="panel p-6">
+            <div className="panel settings-identity p-6">
               <p className="text-faint text-xs mb-1 uppercase tracking-wider">Username</p>
               <p className="font-display text-xl font-semibold text-ink">@{displayUsername}</p>
               {isDemoMode && (
@@ -178,7 +181,7 @@ export default function Profile() {
             </div>
           )}
 
-          <div className="panel p-6">
+          <div className="panel settings-points p-6">
             <p className="font-display text-sm font-semibold text-ink mb-4">Points</p>
             <div className="space-y-3">
               <div className="flex justify-between">
@@ -199,7 +202,7 @@ export default function Profile() {
               <div className="mt-2">
                 <div className="h-1.5 bg-surface-2 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-ink rounded-full transition-all"
+                    className="points-progress h-full rounded-full transition-all"
                     style={{ width: `${Math.min(100, (displayDailyEarned / 500) * 100)}%` }}
                   />
                 </div>
@@ -210,15 +213,17 @@ export default function Profile() {
             </div>
           </div>
 
-          {!isDemoMode && <WalletLinkerPanel />}
-          <OllamaSettings />
       </div>
 
       <section id="recovery" className="scroll-mt-8 pt-8 border-t border-line">
-        <h2 className="page-title text-xl mb-2">Recovery</h2>
+        <h2 className="page-title text-xl mb-2">Recovery access</h2>
         <p className="page-desc mb-6">
-          Keep access to your files with an independent backup.
+          Connect up to two backup wallets and keep an independent offline copy.
         </p>
+        <WalletLinkerPanel />
+        <div className="mt-4" />
+        <RecoveryEvidencePanel />
+        <div className="mt-4" />
         <RecoveryGuide embedded />
       </section>
     </div>

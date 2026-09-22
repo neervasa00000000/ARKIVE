@@ -1,8 +1,9 @@
 export default function Logo({ size = 'md' }) {
   const text = size === 'sm' ? 'text-base' : 'text-lg'
   return (
-    <span className={`font-display font-semibold tracking-tight text-ink ${text}`}>
-      ARKIVE
+    <span className={`brand-lockup ${text}`}>
+      <span className="brand-mark" aria-hidden="true"><span /></span>
+      <span className="font-display font-semibold text-ink">ARKIVE</span>
     </span>
   )
 }

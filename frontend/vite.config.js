@@ -14,7 +14,7 @@ const SECURITY_HEADERS = {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: blob: https:",
-    "connect-src 'self' https: wss: http://127.0.0.1:11434 http://localhost:11434",
+    "connect-src 'self' https: wss:",
     "frame-src 'self' blob:",
     "object-src 'none'",
     "frame-ancestors 'none'",
@@ -31,7 +31,7 @@ export default defineConfig({
     port: 5173,
     allowedHosts: [],
     // React refresh injects a development-only preamble; production preview stays strict.
-    headers: { ...SECURITY_HEADERS, 'Content-Security-Policy': SECURITY_HEADERS['Content-Security-Policy'].replace("script-src 'self'", "script-src 'self' 'unsafe-inline'").replace("connect-src 'self' https: wss: http://127.0.0.1:11434 http://localhost:11434", "connect-src 'self' https: wss: http://127.0.0.1:11434 http://localhost:11434 ws://localhost:* ws://127.0.0.1:*") },
+    headers: { ...SECURITY_HEADERS, 'Content-Security-Policy': SECURITY_HEADERS['Content-Security-Policy'].replace("script-src 'self'", "script-src 'self' 'unsafe-inline'").replace("connect-src 'self' https: wss:", "connect-src 'self' https: wss: ws://localhost:* ws://127.0.0.1:*") },
     proxy: {
       '/api/turbo': {
         target: process.env.SPONSOR_PROXY_TARGET || 'http://127.0.0.1:8787',

@@ -20,7 +20,6 @@ import {
   validateArweaveTxId,
   normalizeEthAddress,
 } from '../lib/security'
-import { decodeVaultBytesAsText, parseVaultNote } from '../lib/vaultNote'
 import {
   uploadBytesViaUserWallet,
   estimateUploadCost,
@@ -29,6 +28,14 @@ import {
 import { useTurboSignPrompt } from './useTurboSignPrompt'
 import { encodeVaultBundle, VAULT_SCHEMA_V3, parseVaultBytes } from '../lib/vaultBundle'
 import { loadVaultBundleBytes, rememberVaultBundle } from '../lib/vaultLocal'
+import {
+  availableRecoveryMethods,
+  assertRecoveryTestCompatible,
+  createRecoveryTestRecord,
+  saveRecoveryTestRecord,
+  testPassphraseRecovery,
+  verifyExactRecovery,
+} from '../lib/recoveryTest'
 import {
   withRecoverySpecFields,
   encodeOfflineRecoveryPackage,
@@ -379,6 +386,7 @@ export function useVault() {
     const derivedKey = await deriveKeyForPayload(walletClient, address, payload)
     const rawFileAesKey = await unwrapFileKeyWithWallet(derivedKey, wrap)
     const fileAesKey = await importRawKey(rawFileAesKey)
+    rawFileAesKey.fill(0)
     return decryptContentWithFileKey(fileAesKey, payload)
   }
 
@@ -437,16 +445,12 @@ export function useVault() {
       const safeType = safeBlobMimeType(fileType)
       const blob = new Blob([decryptedBytes], { type: safeType })
       const url = URL.createObjectURL(blob)
-      const note = decryptedBytes[0] === 0x7b && decryptedBytes.length <= 102_048
-        ? parseVaultNote(decodeVaultBytesAsText(decryptedBytes))
-        : null
 
       setStep('')
       return {
         url,
         fileName: sanitizeFileName(fileName),
         fileType: safeType,
-        note,
         walletAddress: payload.encryptedByWallet || payload.walletAddress,
         cleanup: () => URL.revokeObjectURL(url),
       }
@@ -455,6 +459,57 @@ export function useVault() {
       console.error('Vault retrieve failed:', error)
       throw error
     } finally {
+      setLoading(false)
+    }
+  }
+
+  async function inspectRecoveryMethods(arweaveId) {
+    setLoading(true)
+    try {
+      setStep('Inspecting encrypted archive…')
+      const { bytes } = await loadVaultBundleBytes(arweaveId)
+      const payload = assertRecoveryTestCompatible(parseVaultBytes(bytes))
+      return {
+        archiveId: arweaveId,
+        methods: availableRecoveryMethods(payload, address),
+        bundleVersion: payload.bundleVersion,
+        recoverySpecVersion: payload.recoverySpecVersion,
+      }
+    } finally {
+      setStep('')
+      setLoading(false)
+    }
+  }
+
+  async function testRecovery(arweaveId, { method, passphrase = '' } = {}) {
+    setLoading(true)
+    let decrypted
+    try {
+      setStep('Loading encrypted archive…')
+      const { bytes } = await loadVaultBundleBytes(arweaveId)
+      const payload = assertRecoveryTestCompatible(parseVaultBytes(bytes))
+      let record
+
+      if (method === 'passphrase') {
+        setStep('Testing passphrase recovery locally…')
+        record = await testPassphraseRecovery(payload, passphrase, { archiveId: arweaveId })
+      } else if (method === 'owner-wallet' || method === 'backup-wallet') {
+        setStep('Confirm the recovery test in your wallet…')
+        decrypted = await decryptWithWallet(payload)
+        await verifyExactRecovery(payload, decrypted)
+        const owner = (payload.encryptedByWallet || payload.walletAddress || '').toLowerCase()
+        const resolvedMethod = owner === address?.toLowerCase() ? 'owner-wallet' : 'backup-wallet'
+        if (method !== resolvedMethod) throw new Error('RECOVERY_UNAVAILABLE')
+        record = createRecoveryTestRecord(payload, { archiveId: arweaveId, method: resolvedMethod })
+      } else {
+        throw new Error('RECOVERY_UNAVAILABLE')
+      }
+
+      saveRecoveryTestRecord(record)
+      return record
+    } finally {
+      decrypted?.decryptedBytes?.fill(0)
+      setStep('')
       setLoading(false)
     }
   }
@@ -482,6 +537,8 @@ export function useVault() {
     storeFile,
     authorizeBackupWallet,
     retrieveAndDecryptFile,
+    inspectRecoveryMethods,
+    testRecovery,
     deleteVaultFile,
     getStorageEstimate,
     loading,

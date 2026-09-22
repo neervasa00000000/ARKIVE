@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAccount, useReadContract, useWalletClient } from 'wagmi'
-import { Upload, Lock, AlertTriangle, FileText } from 'lucide-react'
-import NoteEditorModal from '../components/NoteEditor'
+import { Upload, Lock, AlertTriangle, Search, ShieldCheck, Blocks, Infinity } from 'lucide-react'
 import { CONTRACT_ADDRESSES } from '../config/contracts'
 import VaultRegistryABI from '../contracts/VaultRegistry.json'
 import VaultFileCard from '../components/VaultFileCard'
@@ -15,58 +14,115 @@ import { warmTurboForWallet } from '../lib/turboUpload'
 import { isDemoMode } from '../config/demo'
 import { useDemoVault } from '../context/DemoVaultContext'
 
-function HeaderActions({ children }) {
-  return <div className="flex flex-wrap gap-2">{children}</div>
+function recordTimestamp(record) {
+  if (record.sealedAt) return Number(record.sealedAt)
+  if (record.storedAt) return Number(record.storedAt) * 1000
+  return 0
 }
 
-function DemoVaultPage() {
-  const { records, initVault, markOpened } = useDemoVault()
-  const [showSeal, setShowSeal] = useState(false)
-  const [showNote, setShowNote] = useState(false)
+function VaultWorkspace({ records, renderRecord, onStore, storeLabel, storeDisabled = false }) {
+  const [query, setQuery] = useState('')
+  const [type, setType] = useState('all')
+  const [sort, setSort] = useState('newest')
 
-  useEffect(() => { initVault() }, [initVault])
+  const filtered = useMemo(() => {
+    const normalized = query.trim().toLowerCase()
+    return [...records]
+      .filter((record) => !normalized || String(record.fileName || '').toLowerCase().includes(normalized))
+      .filter((record) => type === 'all' || record.fileType === type)
+      .sort((a, b) => sort === 'oldest' ? recordTimestamp(a) - recordTimestamp(b) : recordTimestamp(b) - recordTimestamp(a))
+  }, [records, query, type, sort])
 
   return (
     <>
       <PageHeader
         title="Vault"
-        description="Encrypted with your wallet. Retrieved only when you sign."
+        eyebrow="Private archive"
+        description="Encrypted in your browser. Verified onchain. Preserved on Arweave."
         action={(
-          <HeaderActions>
-            <button type="button" onClick={() => setShowNote(true)} className="btn-secondary btn-primary-sm">
-              <FileText size={17} />
-              New note
-            </button>
-            <button type="button" onClick={() => setShowSeal(true)} className="btn-primary btn-primary-sm">
-              <Upload size={17} />
-              Seal record
-            </button>
-          </HeaderActions>
+          <button type="button" onClick={onStore} disabled={storeDisabled} className="btn-primary btn-primary-sm">
+            <Upload size={17} /> {storeLabel}
+          </button>
         )}
       />
+
+      <section className="vault-signal" aria-label="Vault status">
+        <div className="vault-signal-primary">
+          <span className="signal-orbit" aria-hidden="true"><ShieldCheck size={19} /></span>
+          <span><strong>{records.length} protected {records.length === 1 ? 'record' : 'records'}</strong><small>Only authorised wallets can decrypt</small></span>
+        </div>
+        <div className="vault-signal-item"><Blocks size={16} /><span><strong>Onchain proof</strong><small>Base Sepolia</small></span></div>
+        <div className="vault-signal-item signal-permanent"><Infinity size={17} /><span><strong>Permanent storage</strong><small>Arweave anchored</small></span></div>
+      </section>
+
+      {records.length > 0 && (
+        <section className="vault-toolbar" aria-label="Find and arrange records">
+          <label className="search-field">
+            <span className="sr-only">Search vault records</span>
+            <Search size={16} aria-hidden="true" />
+            <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search records" />
+          </label>
+          <label className="select-field">
+            <span className="sr-only">Filter by file type</span>
+            <select value={type} onChange={(event) => setType(event.target.value)}>
+              <option value="all">All types</option>
+              <option value="document">Documents</option>
+              <option value="image">Images</option>
+              <option value="video">Video</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label className="select-field">
+            <span className="sr-only">Sort records</span>
+            <select value={sort} onChange={(event) => setSort(event.target.value)}>
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+          </label>
+        </section>
+      )}
 
       {records.length === 0 ? (
         <EmptyState
           icon={Lock}
           title="Vault is empty"
-          description="Seal a file — it encrypts on your device, then uploads to testnet storage. Keep your original."
-          action={(
-            <button type="button" onClick={() => setShowSeal(true)} className="btn-primary btn-primary-sm">
-              <Upload size={17} />
-              Seal your first record
-            </button>
-          )}
+          description="Store a file to encrypt it on this device and create a verifiable storage record. Keep your original."
+          action={<button type="button" onClick={onStore} disabled={storeDisabled} className="btn-primary btn-primary-sm"><Upload size={17} /> Store your first record</button>}
         />
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {records.map((record) => (
-            <VaultRecordCard key={record.id} record={record} onOpened={(id) => markOpened(id)} />
-          ))}
+      ) : filtered.length === 0 ? (
+        <div className="empty-inline" role="status">
+          <Search size={20} />
+          <div><strong>No matching records</strong><p>Try another filename or choose a different file type.</p></div>
+          <button type="button" onClick={() => { setQuery(''); setType('all') }} className="btn-ghost btn-compact">Clear filters</button>
         </div>
+      ) : (
+        <section aria-label="Vault records">
+          <div className="section-heading-row"><h2>Records</h2><span aria-live="polite">{filtered.length} shown</span></div>
+          <div className="record-list">
+            {filtered.map((record) => renderRecord(record, 'list'))}
+          </div>
+        </section>
       )}
+    </>
+  )
+}
+
+function DemoVaultPage() {
+  const { records, initVault, markOpened } = useDemoVault()
+  const [showSeal, setShowSeal] = useState(false)
+
+  useEffect(() => { initVault() }, [initVault])
+
+  return (
+    <>
+      <VaultWorkspace
+        records={records}
+        onStore={() => setShowSeal(true)}
+        storeLabel="Store record"
+        renderRecord={(record, view) => <VaultRecordCard key={record.id} record={record} view={view} onOpened={(id) => markOpened(id)} />}
+      />
 
       {showSeal && <SealModal onClose={() => setShowSeal(false)} onSuccess={() => setShowSeal(false)} />}
-      {showNote && <NoteEditorModal onClose={() => setShowNote(false)} />}
     </>
   )
 }
@@ -75,7 +131,6 @@ function LiveVaultPage() {
   const { address, isConnected } = useAccount()
   const { data: walletClient } = useWalletClient()
   const [showUpload, setShowUpload] = useState(false)
-  const [showNote, setShowNote] = useState(false)
   const setup = getSetupStatus({ walletConnected: isConnected })
 
   useEffect(() => {
@@ -91,32 +146,6 @@ function LiveVaultPage() {
 
   return (
     <>
-      <PageHeader
-        title="Vault"
-        description="Encrypted for authorised wallets. Testnet storage — keep an independent backup."
-        action={(
-          <HeaderActions>
-            <button
-              type="button"
-              onClick={() => setShowNote(true)}
-              className="btn-secondary btn-primary-sm"
-            >
-              <FileText size={17} />
-              New note
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowUpload(true)}
-              disabled={!setup.ready}
-              className="btn-primary btn-primary-sm disabled:opacity-40"
-            >
-              <Upload size={17} />
-              Store file
-            </button>
-          </HeaderActions>
-        )}
-      />
-
       {!setup.ready && (
         <div className="callout callout-warn mb-8">
           <AlertTriangle size={18} className="shrink-0 mt-0.5" />
@@ -129,41 +158,18 @@ function LiveVaultPage() {
         </div>
       )}
 
-      {!files || files.length === 0 ? (
-        <EmptyState
-          icon={Lock}
-          title="Vault is empty"
-          description="Upload any file. Encrypted locally, permanent on Arweave."
-          action={(
-            <button
-              type="button"
-              onClick={() => setShowUpload(true)}
-              disabled={!setup.ready}
-              className="btn-primary btn-primary-sm disabled:opacity-40"
-            >
-              <Upload size={17} />
-              Store file
-            </button>
-          )}
-        />
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {files.map((file) => (
-            <VaultFileCard key={file.id.toString()} file={file} onDeleted={refetch} />
-          ))}
-        </div>
-      )}
+      <VaultWorkspace
+        records={files || []}
+        onStore={() => setShowUpload(true)}
+        storeLabel="Store file"
+        storeDisabled={!setup.ready}
+        renderRecord={(file, view) => <VaultFileCard key={file.id.toString()} file={file} view={view} onDeleted={refetch} />}
+      />
 
       {showUpload && (
         <UploadModal
           onClose={() => setShowUpload(false)}
           onSuccess={() => { setShowUpload(false); refetch() }}
-        />
-      )}
-      {showNote && (
-        <NoteEditorModal
-          onClose={() => setShowNote(false)}
-          onSaved={() => { setShowNote(false); refetch() }}
         />
       )}
     </>

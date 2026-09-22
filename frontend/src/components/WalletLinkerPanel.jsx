@@ -3,7 +3,10 @@ import { Link2, Link2Off, Plus, Clock, Shield, X, Check } from 'lucide-react'
 import { useWalletLinker } from '../hooks/useWalletLinker'
 import { useAccount } from 'wagmi'
 import { isValidEthAddress } from '../lib/security'
+import { isDemoMode, DEMO_ADDRESS } from '../config/demo'
 import toast from 'react-hot-toast'
+
+const DEMO_LINKS_KEY = 'arkive_demo_linked_wallets'
 
 function shortAddr(addr) {
   if (!addr) return ''
@@ -32,7 +35,81 @@ function WalletRow({ address: addr, label, onUnlink, loading }) {
   )
 }
 
-export function WalletLinkerPanel() {
+function DemoWalletLinkerPanel() {
+  const [linkedWallets, setLinkedWallets] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(DEMO_LINKS_KEY) || '[]') }
+    catch { return [] }
+  })
+  const [mode, setMode] = useState(false)
+  const [inputAddress, setInputAddress] = useState('')
+
+  function addBackupWallet() {
+    const nextAddress = inputAddress.trim()
+    if (!isValidEthAddress(nextAddress)) {
+      toast.error('Enter a valid wallet address starting with 0x')
+      return
+    }
+    if (nextAddress.toLowerCase() === DEMO_ADDRESS.toLowerCase() || linkedWallets.some((wallet) => wallet.toLowerCase() === nextAddress.toLowerCase())) {
+      toast.error('This wallet is already connected')
+      return
+    }
+    const next = [...linkedWallets, nextAddress]
+    setLinkedWallets(next)
+    localStorage.setItem(DEMO_LINKS_KEY, JSON.stringify(next))
+    setInputAddress('')
+    setMode(false)
+    toast.success('Backup wallet connected in this demo')
+  }
+
+  function removeBackupWallet(walletAddress) {
+    const next = linkedWallets.filter((wallet) => wallet !== walletAddress)
+    setLinkedWallets(next)
+    localStorage.setItem(DEMO_LINKS_KEY, JSON.stringify(next))
+    toast.success('Backup wallet removed')
+  }
+
+  return (
+    <div className="panel recovery-wallet-panel p-6">
+      <div className="recovery-wallet-head">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Shield size={17} className="text-accent" />
+            <h3 className="font-display text-sm font-semibold text-ink">Recovery wallets</h3>
+          </div>
+          <p className="text-muted text-xs">{1 + linkedWallets.length} of 3 authorised wallet slots used</p>
+        </div>
+        <span className="status-badge status-badge-success">Demo</span>
+      </div>
+
+      <div className="recovery-wallet-list">
+        <WalletRow address={DEMO_ADDRESS} label="primary" />
+        {linkedWallets.map((wallet) => (
+          <WalletRow key={wallet} address={wallet} label="backup" onUnlink={removeBackupWallet} />
+        ))}
+      </div>
+
+      {mode ? (
+        <div className="recovery-connect-flow">
+          <div className="recovery-step-copy"><span>1</span><p><strong>Enter the backup wallet</strong><small>In the live app, this wallet requests access and the primary wallet confirms onchain.</small></p></div>
+          <label className="block">
+            <span className="sr-only">Backup wallet address</span>
+            <input type="text" value={inputAddress} onChange={(event) => setInputAddress(event.target.value)} placeholder="0x..." className="input-field font-mono text-xs" />
+          </label>
+          <div className="flex gap-2">
+            <button type="button" onClick={addBackupWallet} disabled={!inputAddress.trim()} className="btn-primary btn-primary-sm">Connect backup wallet</button>
+            <button type="button" onClick={() => { setMode(false); setInputAddress('') }} className="btn-ghost btn-primary-sm">Cancel</button>
+          </div>
+        </div>
+      ) : (
+        linkedWallets.length < 2 && <button type="button" onClick={() => setMode(true)} className="btn-secondary btn-primary-sm mt-4"><Plus size={15} /> Add backup wallet</button>
+      )}
+
+      <p className="recovery-wallet-note">Backup wallets are authorised when a file is stored. Existing encrypted files keep the access rules they were sealed with.</p>
+    </div>
+  )
+}
+
+function LiveWalletLinkerPanel() {
   const { address, connector, chainId } = useAccount()
   const {
     linkedWallets,
@@ -284,7 +361,7 @@ export function WalletLinkerPanel() {
               className="flex-1 flex items-center justify-center gap-1.5 btn-secondary py-2 text-xs"
             >
               <Plus size={13} />
-              Join a primary wallet
+              Request backup access
             </button>
           )}
           {isPrimary && (
@@ -294,7 +371,7 @@ export function WalletLinkerPanel() {
               className="flex-1 flex items-center justify-center gap-1.5 btn-secondary py-2 text-xs"
             >
               <Check size={13} />
-              Confirm a request
+              Confirm backup wallet
             </button>
           )}
           {isSecondary && (
@@ -318,4 +395,8 @@ export function WalletLinkerPanel() {
       </p>
     </div>
   )
+}
+
+export function WalletLinkerPanel() {
+  return isDemoMode ? <DemoWalletLinkerPanel /> : <LiveWalletLinkerPanel />
 }

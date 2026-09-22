@@ -1,24 +1,30 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutGrid, Lock, User } from 'lucide-react'
+import { Activity, Archive, MessagesSquare, Settings, LifeBuoy } from 'lucide-react'
 
 const links = [
-  { path: '/', label: 'Feed', icon: LayoutGrid },
-  { path: '/vault', label: 'Vault', icon: Lock },
-  { path: '/profile', label: 'Profile', icon: User },
+  { path: '/vault', label: 'Vault', icon: Archive },
+  { path: '/activity', label: 'Activity', icon: Activity },
+  { path: '/community', label: 'Community', icon: MessagesSquare },
+  { path: '/profile#recovery', label: 'Recovery', icon: LifeBuoy, recovery: true },
+  { path: '/profile', label: 'Settings', icon: Settings },
 ]
 
 export function SidebarNav({ onNavigate }) {
   const location = useLocation()
 
   return (
-    <nav className="flex flex-col gap-1">
-      {links.map(({ path, label, icon: Icon }) => {
-        const active = location.pathname === path
+    <nav aria-label="Primary" className="flex flex-col gap-1">
+      {links.map(({ path, label, icon: Icon, recovery }) => {
+        const pathname = path.split('#')[0]
+        const active = recovery
+          ? location.pathname === pathname && location.hash === '#recovery'
+          : location.pathname === pathname && !(pathname === '/profile' && location.hash === '#recovery')
         return (
           <Link
             key={path}
             to={path}
             onClick={onNavigate}
+            aria-current={active ? 'page' : undefined}
             className={`sidebar-link ${active ? 'sidebar-link-active' : ''}`}
           >
             <Icon size={18} strokeWidth={active ? 2 : 1.5} />
@@ -34,15 +40,19 @@ export function MobileNav() {
   const location = useLocation()
 
   return (
-    <nav className="flex items-center justify-around px-2 py-2">
-      {links.map(({ path, label, icon: Icon }) => {
-        const active = location.pathname === path
+    <nav aria-label="Primary" className="flex items-center justify-around px-1 py-2">
+      {links.map(({ path, label, icon: Icon, recovery }) => {
+        const pathname = path.split('#')[0]
+        const active = recovery
+          ? location.pathname === pathname && location.hash === '#recovery'
+          : location.pathname === pathname && !(pathname === '/profile' && location.hash === '#recovery')
         return (
           <Link
             key={path}
             to={path}
-            className={`flex flex-col items-center gap-1 px-5 py-2 rounded-xl text-[11px] font-medium transition-colors ${
-              active ? 'text-ink' : 'text-faint'
+            aria-current={active ? 'page' : undefined}
+            className={`mobile-nav-link ${active ? 'mobile-nav-link-active' : ''} ${
+              active ? 'text-ink' : 'text-muted'
             }`}
           >
             <Icon size={20} strokeWidth={active ? 2 : 1.5} />
