@@ -67,9 +67,6 @@ def decrypt_archive(raw: bytes, passphrase: str) -> tuple[bytes, dict]:
     if not isinstance(iterations, int) or iterations <= 0:
         raise RecoveryError("INVALID_KDF_ITERATIONS")
 
-    # Interoperability assumptions not explicit in RECOVERY-SPEC.md:
-    # UTF-8 passphrase bytes, no Unicode normalization, no AES-GCM AAD, and the
-    # standard 16-byte GCM tag appended to each ciphertext by AESGCM.
     wrapping_key = hashlib.pbkdf2_hmac(
         "sha256",
         passphrase.encode("utf-8"),
@@ -90,9 +87,7 @@ def decrypt_archive(raw: bytes, passphrase: str) -> tuple[bytes, dict]:
 
     try:
         plaintext = AESGCM(file_key).decrypt(
-            decode64(header.get("encryptedFileIv"), "encrypted_file_iv"),
-            ciphertext,
-            None,
+            decode64(header.get("encryptedFileIv"), "encrypted_file_iv"), ciphertext, None
         )
         metadata_raw = AESGCM(file_key).decrypt(
             decode64(header.get("encryptedMetadataIv"), "encrypted_metadata_iv"),

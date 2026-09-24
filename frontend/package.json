@@ -11,8 +11,13 @@
     "preview": "vite preview",
     "deploy:arweave": "npm run build && node scripts/deploy-to-arweave.js",
     "test:security": "node --test tests/security.test.mjs tests/turbo-credits.test.mjs tests/sponsor-upload.test.mjs tests/vault-key-wrap.test.mjs tests/recovery-spec.test.mjs",
+    "test:app": "node --test tests/security.test.mjs tests/turbo-credits.test.mjs tests/sponsor-upload.test.mjs tests/vault-key-wrap.test.mjs tests/recovery-spec.test.mjs tests/recovery-test.test.mjs tests/turbo-wallet-adapter.test.mjs tests/turbo-upload-funding.test.mjs tests/transaction-receipt.test.mjs tests/vault-roundtrip.test.mjs tests/sponsor-policy.test.mjs tests/bounded-response.test.mjs tests/vault-derivation.test.mjs tests/build-env.test.mjs tests/wallet-startup.test.mjs tests/multi-wallet.test.mjs",
+    "test:recovery-cli": "node --test ../tools/arkive-recover/test/*.test.mjs",
+    "test:fixtures": "node ../research/fixtures/verify.mjs",
+    "test:conformance": "node ../research/conformance/run-all.mjs",
+    "test:smoke": "node --test tests/fetch-vault-arweave.mjs tests/sponsor-live.test.mjs",
     "postinstall": "node scripts/pin-rpc-uuid.mjs",
-    "test": "node --test tests/security.test.mjs tests/turbo-credits.test.mjs tests/sponsor-upload.test.mjs tests/vault-key-wrap.test.mjs tests/recovery-spec.test.mjs tests/recovery-test.test.mjs tests/turbo-wallet-adapter.test.mjs tests/turbo-upload-funding.test.mjs tests/transaction-receipt.test.mjs tests/vault-roundtrip.test.mjs tests/sponsor-policy.test.mjs tests/bounded-response.test.mjs tests/vault-derivation.test.mjs tests/build-env.test.mjs tests/wallet-startup.test.mjs tests/multi-wallet.test.mjs"
+    "test": "npm run test:app && npm run test:recovery-cli && npm run test:fixtures && npm run test:conformance"
   },
   "dependencies": {
     "@ardrive/turbo-sdk": "^1.0.0",
