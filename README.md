@@ -4,7 +4,7 @@
 
 **Your files shouldn't depend on our company existing.**
 
-ARKIVE is a self-custodied, encrypted personal vault. Files are encrypted in your browser before they leave the device, stored on decentralized networks (Arweave today), and indexed on Base. **No single company controls your files or holds the keys needed to read them** — including ARKIVE.
+ARKIVE is an experimental open-source archival system and self-custodied encrypted personal vault. Files are encrypted in your browser before they leave the device, stored on decentralized networks (Arweave today), and indexed on Base. **No single company controls your files or holds the keys needed to read them** — including ARKIVE.
 
 ## What it is
 
@@ -71,11 +71,14 @@ ARKIVE/
 ├── DEPLOY.md             ← beta hosting
 ├── docs/
 │   ├── ARCHITECTURE.md   ← encrypt → wrap → store → decrypt
-│   ├── RECOVERY-SPEC.md  ← blockchain-independent recovery (normative)
+│   ├── RECOVERY-SPEC.md  ← offline recovery format and cryptography (normative)
 │   ├── SECURITY.md
 │   └── BUILD-GUIDE.md
 ├── contracts/            ← Solidity (Base Sepolia)
 ├── frontend/             ← React app + Turbo sponsor server
+├── tools/arkive-recover/ ← standalone public recovery CLI
+├── research/conformance/ ← public Node/Python conformance tests and vectors
+├── research/fixtures/    ← synthetic public recovery fixture
 └── scripts/
 ```
 

@@ -49,7 +49,7 @@ Date: 13 September 2026. Scope: existing wallet/testnet application and the supp
 
 ## Verification evidence
 
-- **70 frontend tests pass**: encryption, wrong keys/passphrases, corrupted ciphertext, tampered hash with invalid GCM tag, disk export/reload, KDF/header bounds, safe MIME types, bounded streams, sponsor isolation, wallet signing adapter, saved-domain recovery, receipt status and build-env gates.
+- **84 product frontend tests passed in the 2026-09-24 research baseline**: encryption, wrong keys/passphrases, corrupted ciphertext, tampered hash with invalid GCM tag, disk export/reload, KDF/header bounds, safe MIME types, bounded streams, sponsor isolation, wallet signing adapter, saved-domain recovery, receipt status and build-env gates. CI output is authoritative if this historical baseline count becomes stale.
 - **24 Hardhat tests pass**: identity linking and stale-state attacks, registry ownership/deletion, duplicate registration isolation, points/profile/configuration behavior.
 - Production build passes. Large Web3/Lit/Turbo chunks remain a performance warning.
 - Browser production preview: recovery page rendered with named controls; a synthetic .arkive backup authenticated and offered the original file for download; a wrong passphrase displayed an error and no download. No browser errors were reported on the recovery page.
