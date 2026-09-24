@@ -1,86 +1,46 @@
-/**
- * Live sponsor API smoke test — requires contracts/.env DEPLOYER_PRIVATE_KEY.
- * Run: node tests/sponsor-live.test.mjs
- */
-import { config } from 'dotenv'
-import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+/** Optional local sponsor smoke test. It may spend test funds and is opt-in. */
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { privateKeyToAccount } from 'viem/accounts'
-import { SPONSOR_AUTH_PREFIX, sponsorUpload, verifySponsorAuth } from '../server/turboSponsor.mjs'
+import { SPONSOR_AUTH_PREFIX } from '../server/turboSponsor.mjs'
 
-function sponsorAuthMessage(timestamp, payloadBytes) {
-  const hash = createHash('sha256').update(payloadBytes).digest('hex')
-  return `${SPONSOR_AUTH_PREFIX} ${timestamp} ${hash}`
-}
+const enabled = process.env.RUN_SPONSOR_UPLOAD_SMOKE === 'true'
+const sponsorEnabled = process.env.SPONSOR_ENABLED === 'true'
+const privateKey = process.env.SPONSOR_PRIVATE_KEY?.trim()
+const base = process.env.SPONSOR_SMOKE_URL?.replace(/\/$/, '')
+const configured = enabled && sponsorEnabled && /^(0x)?[a-fA-F0-9]{64}$/.test(privateKey || '') && base
+const skipReason = configured
+  ? false
+  : 'SKIPPED — ENVIRONMENT UNAVAILABLE: requires RUN_SPONSOR_UPLOAD_SMOKE=true, SPONSOR_ENABLED=true, SPONSOR_PRIVATE_KEY, SPONSOR_SMOKE_URL, and a running isolated sponsor server'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-config({ path: resolve(__dirname, '../../contracts/.env') })
+test('opt-in sponsor server accepts a signed synthetic upload', { skip: skipReason }, async () => {
+  const account = privateKeyToAccount(privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`)
+  const healthResponse = await fetch(`${base}/api/turbo/health`)
+  const health = await healthResponse.json()
+  assert.equal(healthResponse.ok, true)
+  assert.equal(health.sponsorConfigured, true)
 
-const PORT = Number(process.env.SPONSOR_PORT || 8787)
-const BASE = `http://127.0.0.1:${PORT}`
-
-async function main() {
-  const pk = process.env.DEPLOYER_PRIVATE_KEY?.trim()
-  if (!pk || pk === 'your_private_key_here') {
-    console.error('SKIP: DEPLOYER_PRIVATE_KEY not set in contracts/.env')
-    process.exit(0)
-  }
-
-  const account = privateKeyToAccount(pk.startsWith('0x') ? pk : `0x${pk}`)
-  const healthRes = await fetch(`${BASE}/api/turbo/health`)
-  const health = await healthRes.json()
-  console.info('[sponsor-live] health', health)
-  if (!healthRes.ok || !health.sponsorConfigured) {
-    throw new Error('Sponsor health check failed — start: node server/turboSponsor.mjs')
-  }
-
-  const payload = Buffer.from(JSON.stringify({ text: 'ARKIVE sponsor live test' }), 'utf8')
-  const dataB64 = payload.toString('base64')
-
+  const payload = Buffer.from(JSON.stringify({ text: 'ARKIVE synthetic sponsor smoke test' }))
   const timestamp = Date.now()
-  const message = sponsorAuthMessage(timestamp, payload)
-  const signature = await account.signMessage({ message })
-  await verifySponsorAuth(account.address, timestamp, signature, payload)
-
-  const direct = await sponsorUpload({
-    walletAddress: account.address,
-    chainId: 84532,
-    byteCount: payload.length,
-    contentType: 'application/json',
-    data: dataB64,
-    timestamp,
-    signature,
+  const hash = createHash('sha256').update(payload).digest('hex')
+  const signature = await account.signMessage({
+    message: `${SPONSOR_AUTH_PREFIX} ${timestamp} ${hash}`,
   })
-  console.info('[sponsor-live] direct upload ok', direct.arweaveId)
-
-  const httpTimestamp = Date.now()
-  const httpMessage = sponsorAuthMessage(httpTimestamp, payload)
-  const httpSignature = await account.signMessage({ message: httpMessage })
-
-  const curlBody = JSON.stringify({
-    walletAddress: account.address,
-    chainId: 84532,
-    byteCount: payload.length,
-    contentType: 'application/json',
-    data: dataB64,
-    timestamp: httpTimestamp,
-    signature: httpSignature,
-  })
-
-  const httpRes = await fetch(`${BASE}/api/turbo/sponsor-feed`, {
+  const response = await fetch(`${base}/api/turbo/sponsor-feed`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:5173' },
-    body: curlBody,
+    body: JSON.stringify({
+      walletAddress: account.address,
+      chainId: 84532,
+      byteCount: payload.length,
+      contentType: 'application/json',
+      data: payload.toString('base64'),
+      timestamp,
+      signature,
+    }),
   })
-  const httpPayload = await httpRes.json()
-  if (!httpRes.ok) {
-    throw new Error(`HTTP sponsor failed: ${httpPayload.error || httpRes.status}`)
-  }
-  console.info('[sponsor-live] HTTP upload ok', httpPayload.arweaveId)
-}
-
-main().catch((err) => {
-  console.error('[sponsor-live] FAILED', err.message || err)
-  process.exit(1)
+  const result = await response.json()
+  assert.equal(response.ok, true, result.error || 'sponsor upload failed')
+  assert.match(result.arweaveId, /^[A-Za-z0-9_-]{43}$/)
 })
