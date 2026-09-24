@@ -3,13 +3,31 @@ dist/
 .env
 .env.local
 **/.env
+.env.*
+**/.env.*
+!.env.example
+!**/.env.example
+.vercel/
+**/.vercel/
 contracts/cache/
 contracts/artifacts/
 frontend/dist/
 .DS_Store
 *.log
+.idea/
+.vscode/
+.cursor/
+__pycache__/
+*.pyc
 frontend/src/config/arweave-deployment.json
 cursor_arkive_mvp_build_specifications.md
+research/results/20*/
+/research/tmp/
+/research/private-output/
+/ARKIVE-RESEARCH/
+/private-research/
+/private-notes/
+/after_*.png
 
 # Local Netlify folder
 .netlify
