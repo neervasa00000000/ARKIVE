@@ -38,9 +38,9 @@ import {
 } from '../lib/recoveryTest'
 import {
   withRecoverySpecFields,
-  encodeOfflineRecoveryPackage,
-  suggestArkiveFileName,
+  RECOVERY_DISCOVERY_STATE,
 } from '../lib/recoverySpec'
+import { finalizeAfterStorageRid } from '../lib/ridCustody'
 import {
   DERIVATION_VERSION_EIP712,
   buildEip712Domain,
@@ -271,8 +271,6 @@ export function useVault() {
 
       arweaveId = validateArweaveTxId(arweaveId)
 
-      const offlinePackage = encodeOfflineRecoveryPackage(vaultHeader, encryptedFile, arweaveId)
-      void rememberVaultBundle(arweaveId, offlinePackage)
       for (const backup of backupAddresses) {
         backupDerivedKeyByAddress.delete(backup)
       }
@@ -288,15 +286,31 @@ export function useVault() {
       setStep('Step 2 of 2 — approve on-chain vault record in MetaMask')
       const conditionsHash = `wallet:${owner}`
 
+      // INVARIANT: stamp recovery artifact as soon as RID exists — before Base registration.
+      const custody = await finalizeAfterStorageRid({
+        header: vaultHeader,
+        encryptedFileBytes: encryptedFile,
+        storageRid: arweaveId,
+        originalFileName: safeName,
+        registerOnChain: null,
+      })
+      void rememberVaultBundle(arweaveId, custody.offlinePackage)
+
       const result = {
         success: true,
+        uploadSucceeded: true,
+        registrationSucceeded: false,
         arweaveId,
+        archiveId: arweaveId,
         fileName: safeName,
         fileType: file.type,
         authorizedWallets,
         hasRecoveryPassphrase: Boolean(recoveryWrap),
-        offlinePackage,
-        offlineFileName: suggestArkiveFileName(safeName, arweaveId),
+        offlinePackage: custody.offlinePackage,
+        offlineFileName: custody.offlineFileName,
+        storageLocations: custody.storageLocations,
+        recoveryDiscoveryState: RECOVERY_DISCOVERY_STATE.RID_STAMPED,
+        recoveryArtifactAvailable: true,
       }
       pendingRegistration.current = { file, owner, arweaveId, fileType, conditionsHash, result }
       return await registerPendingVault()
@@ -304,15 +318,28 @@ export function useVault() {
     } catch (error) {
       setStep('')
       setUploadProgress(0)
-      const msg = error?.message || String(error)
+      // If RID + stamped package already exist on pending, surface them even on unexpected throws.
+      const pending = pendingRegistration.current
       if (
-        (msg.includes('user rejected') || msg.includes('User rejected')) &&
+        pending?.result?.offlinePackage &&
+        pending?.arweaveId &&
         typeof arweaveId === 'string' &&
         arweaveId.length > 20
       ) {
-        throw new Error(
-          `CHAIN_REGISTER_FAILED:${arweaveId}:Upload succeeded but registration was cancelled. Retry with the same file to register without uploading again.`,
-        )
+        const msg = error?.message || String(error)
+        const detail =
+          msg.includes('user rejected') || msg.includes('User rejected')
+            ? 'Upload succeeded but registration was cancelled. Download your recovery copy — it contains the storage identifier.'
+            : `Upload succeeded but blockchain registration failed. Download your recovery copy — it contains the storage identifier. (${msg})`
+        return {
+          ...pending.result,
+          success: true,
+          uploadSucceeded: true,
+          registrationSucceeded: false,
+          registrationError: detail,
+          recoveryDiscoveryState: RECOVERY_DISCOVERY_STATE.RID_STAMPED,
+          recoveryArtifactAvailable: true,
+        }
       }
       console.error('Vault store failed:', error)
       throw error
@@ -323,26 +350,57 @@ export function useVault() {
 
   async function registerPendingVault() {
     const pending = pendingRegistration.current
-    setStep('Approve or confirm the on-chain vault record…')
-    if (!pending.hash) {
-      pending.hash = await writeContractAsync({
-        address: CONTRACT_ADDRESSES.VaultRegistry,
-        abi: VaultRegistryABI.abi,
-        functionName: 'storeFile',
-        args: [pending.arweaveId, 'sealed-record', pending.fileType, pending.conditionsHash],
-        account: address,
-        chain: baseSepolia,
-      })
+    if (!pending?.result) throw new Error('NO_PENDING_REGISTRATION')
+
+    // Stamped recovery artifact must already be available before Base is consulted.
+    if (!pending.result.offlinePackage || !pending.result.recoveryArtifactAvailable) {
+      throw new Error('RECOVERY_ARTIFACT_REQUIRED_BEFORE_REGISTRY')
     }
+
+    setStep('Approve or confirm the on-chain vault record…')
     try {
+      if (!pending.hash) {
+        pending.hash = await writeContractAsync({
+          address: CONTRACT_ADDRESSES.VaultRegistry,
+          abi: VaultRegistryABI.abi,
+          functionName: 'storeFile',
+          args: [pending.arweaveId, 'sealed-record', pending.fileType, pending.conditionsHash],
+          account: address,
+          chain: baseSepolia,
+        })
+      }
       await requireSuccessfulReceipt(waitForTransactionReceipt, wagmiConfig, { hash: pending.hash })
+      pending.result = {
+        ...pending.result,
+        registrationSucceeded: true,
+        registrationError: null,
+        recoveryDiscoveryState: RECOVERY_DISCOVERY_STATE.REGISTRY_CONFIRMED,
+      }
+      const result = pending.result
+      pendingRegistration.current = null
+      setStep('')
+      return result
     } catch (error) {
       if (error.message?.startsWith('TRANSACTION_REVERTED')) pending.hash = null
-      throw error
+      const msg = error?.message || String(error)
+      const detail =
+        msg.includes('user rejected') || msg.includes('User rejected')
+          ? 'Remote encrypted storage upload succeeded. Blockchain registry registration was cancelled. Your recovery copy contains the storage identifier — preserve it.'
+          : `Remote encrypted storage upload succeeded. Blockchain registry registration failed. Your recovery copy contains the storage identifier — preserve it. (${msg})`
+      // Do NOT clear pending — retry registration without re-upload.
+      // Do NOT withhold the stamped artifact.
+      pending.result = {
+        ...pending.result,
+        success: true,
+        uploadSucceeded: true,
+        registrationSucceeded: false,
+        registrationError: detail,
+        recoveryDiscoveryState: RECOVERY_DISCOVERY_STATE.RID_STAMPED,
+        recoveryArtifactAvailable: true,
+      }
+      setStep('')
+      return pending.result
     }
-    pendingRegistration.current = null
-    setStep('')
-    return pending.result
   }
 
   const decryptContentWithFileKey = decryptVaultContent

@@ -82,9 +82,30 @@ export default function SealModal({ onClose, onSuccess }) {
         icon: '🔐',
         duration: 6000,
       })
-      await storeFile(file)
+      const stored = await storeFile(file)
+      if (stored?.offlinePackage && stored?.offlineFileName && typeof document !== 'undefined') {
+        try {
+          const blob = new Blob([stored.offlinePackage], { type: 'application/octet-stream' })
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = stored.offlineFileName
+          a.click()
+          URL.revokeObjectURL(url)
+        } catch {
+          /* manual re-download may still be needed from vault flows */
+        }
+      }
+      if (stored?.registrationSucceeded === false) {
+        toast(
+          'Remote upload succeeded. Blockchain registration failed — keep your recovery copy with the storage identifier.',
+          { icon: '⚠️', duration: 10000 },
+        )
+        setLastError(stored.registrationError || 'Blockchain registration failed — recovery copy still available.')
+      } else {
+        onSuccess?.()
+      }
       setPhase('complete')
-      onSuccess?.()
     } catch (error) {
       const msg = vaultErrorMessage(error)
       const detail = vaultErrorDetail(error)

@@ -1,10 +1,15 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Upload, Lock, Download } from 'lucide-react'
 import { useAccount, useWalletClient } from 'wagmi'
 import { useVault } from '../hooks/useVault'
 import { vaultErrorMessage, vaultErrorDetail } from '../lib/setupStatus'
 import { warmTurboWalletLink } from '../lib/turboUpload'
 import { validateSealFileDeep } from '../lib/security'
+import { RECOVERY_DISCOVERY_STATE, recoveryDiscoveryLabel } from '../lib/recoverySpec'
+import {
+  shouldWarnBeforeDiscardingRecoveryCustody,
+  triggerRecoveryPackageDownload,
+} from '../lib/ridCustody'
 import { Modal, ModalHeader, ModalBody, ModalFooter } from './Modal'
 import { MetaMaskSignInlineNotice } from './SignExplainModal'
 import Dropzone, { DropzoneIcon } from './Dropzone'
@@ -83,9 +88,15 @@ export default function UploadModal({ onClose, onSuccess }) {
   const [backup2Authorised, setBackup2Authorised] = useState(false)
   const [recoveryPassphrase, setRecoveryPassphrase] = useState('')
   const [showRecovery, setShowRecovery] = useState(false)
+  const [recoveryArtifactSaved, setRecoveryArtifactSaved] = useState(false)
   const fileRef = useRef()
   const { storeFile, authorizeBackupWallet, getStorageEstimate, loading, step, uploadProgress, SignPromptModal } =
     useVault()
+
+  const needsRecoveryCustodyWarn = shouldWarnBeforeDiscardingRecoveryCustody({
+    ridPresent: Boolean(preview?.arweaveId && preview?.offlinePackage),
+    recoveryArtifactSaved,
+  })
 
   useEffect(() => {
     if (!file || !walletClient) {
@@ -108,12 +119,24 @@ export default function UploadModal({ onClose, onSuccess }) {
     setBackup2Authorised(false)
   }, [backup2])
 
+  useEffect(() => {
+    if (!needsRecoveryCustodyWarn) return undefined
+    const onBeforeUnload = (event) => {
+      // UX protection only — browsers do not guarantee this preserves the artifact.
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [needsRecoveryCustodyWarn])
+
   async function handleFile(selected) {
     if (!selected) return
     try {
       await validateSealFileDeep(selected)
       setFile(selected)
       setPreview(null)
+      setRecoveryArtifactSaved(false)
     } catch (error) {
       toast.error(vaultErrorMessage(error))
     }
@@ -138,6 +161,13 @@ export default function UploadModal({ onClose, onSuccess }) {
     }
   }
 
+  const downloadRecoveryCopy = useCallback(() => {
+    if (!preview?.offlinePackage || !preview?.offlineFileName) return
+    triggerRecoveryPackageDownload(preview.offlinePackage, preview.offlineFileName)
+    setRecoveryArtifactSaved(true)
+    toast.success('Recovery copy downloaded — keep it safe', { duration: 6000 })
+  }, [preview])
+
   async function handleUpload() {
     if (!file) return
     setLastError(null)
@@ -159,17 +189,27 @@ export default function UploadModal({ onClose, onSuccess }) {
         opts.recoveryPassphrase = recoveryPassphrase
       }
       const stored = await storeFile(file, opts)
-      toast.success('Saved to vault')
 
+      const registrationOk = stored.registrationSucceeded !== false
+      if (registrationOk) {
+        toast.success('Saved to vault')
+      } else {
+        toast(
+          'Remote upload succeeded. Blockchain registration failed — download your recovery copy.',
+          { icon: '⚠️', duration: 10000 },
+        )
+      }
+
+      // Convenience auto-download when package exists; manual button remains available.
       if (stored.offlinePackage && stored.offlineFileName) {
-        const blob = new Blob([stored.offlinePackage], { type: 'application/octet-stream' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = stored.offlineFileName
-        a.click()
-        URL.revokeObjectURL(url)
-        toast.success('Offline recovery copy (.arkive) downloaded — keep it safe', { duration: 6000 })
+        try {
+          triggerRecoveryPackageDownload(stored.offlinePackage, stored.offlineFileName)
+          setRecoveryArtifactSaved(true)
+          toast.success('Offline recovery copy (.arkive) downloaded — keep it safe', { duration: 6000 })
+        } catch {
+          setRecoveryArtifactSaved(false)
+          toast.error('Automatic download failed — use Download Recovery Copy')
+        }
       }
 
       const previewUrl = URL.createObjectURL(file)
@@ -178,11 +218,19 @@ export default function UploadModal({ onClose, onSuccess }) {
         fileName: stored.fileName,
         fileType: stored.fileType || file.type,
         arweaveId: stored.arweaveId,
-        offlineFileName: stored.offlineFileName,
+        offlinePackage: stored.offlinePackage || null,
+        offlineFileName: stored.offlineFileName || null,
+        registrationSucceeded: registrationOk,
+        registrationError: stored.registrationError || null,
+        recoveryDiscoveryState:
+          stored.recoveryDiscoveryState ||
+          (registrationOk
+            ? RECOVERY_DISCOVERY_STATE.REGISTRY_CONFIRMED
+            : RECOVERY_DISCOVERY_STATE.RID_STAMPED),
         cleanup: () => URL.revokeObjectURL(previewUrl),
       })
 
-      onSuccess?.()
+      if (registrationOk) onSuccess?.()
     } catch (error) {
       const msg = vaultErrorMessage(error)
       const detail = vaultErrorDetail(error)
@@ -192,7 +240,7 @@ export default function UploadModal({ onClose, onSuccess }) {
     }
   }
 
-  function handleDownload() {
+  function handleDownloadOriginal() {
     if (!preview) return
     const a = document.createElement('a')
     a.href = preview.url
@@ -201,17 +249,31 @@ export default function UploadModal({ onClose, onSuccess }) {
   }
 
   function handleClose() {
+    if (needsRecoveryCustodyWarn) {
+      const proceed = window.confirm(
+        'Your recovery copy with the storage identifier may not be saved yet. Download it before closing?',
+      )
+      if (!proceed) return
+    }
     preview?.cleanup?.()
     onClose()
   }
+
+  const registrationFailed = preview && preview.registrationSucceeded === false
 
   return (
     <>
       {SignPromptModal}
       <Modal onClose={handleClose}>
       <ModalHeader
-        title={preview ? 'Stored' : 'Store to vault'}
-        description={preview ? 'Saved to your vault.' : 'Encrypted on your device. Testnet files expire after about 3 days. Keep your offline backup.'}
+        title={preview ? (registrationFailed ? 'Uploaded — registration pending' : 'Stored') : 'Store to vault'}
+        description={
+          preview
+            ? registrationFailed
+              ? 'Encrypted upload succeeded. Blockchain registration did not. Preserve your recovery copy.'
+              : 'Saved to your vault.'
+            : 'Encrypted on your device. Testnet files expire after about 3 days. Keep your offline backup.'
+        }
         onClose={handleClose}
         icon={Lock}
       />
@@ -219,9 +281,29 @@ export default function UploadModal({ onClose, onSuccess }) {
       <ModalBody>
         {preview ? (
           <div className="space-y-4">
-            <p className="status-pill status-pill-ok w-fit mx-auto">
-              Wallet {address?.slice(0, 6)}…{address?.slice(-4)} verified
-            </p>
+            {!registrationFailed && (
+              <p className="status-pill status-pill-ok w-fit mx-auto">
+                Wallet {address?.slice(0, 6)}…{address?.slice(-4)} verified
+              </p>
+            )}
+            {registrationFailed && (
+              <div className="notice-inline space-y-2">
+                <p className="font-body text-sm text-text-primary">
+                  Remote encrypted storage upload succeeded.
+                </p>
+                <p className="font-body text-sm text-text-secondary">
+                  Blockchain registry registration failed.
+                </p>
+                <p className="font-body text-sm text-text-secondary">
+                  Your recovery copy contains the storage identifier. Preserve this recovery copy.
+                </p>
+                {preview.registrationError && (
+                  <p className="font-mono text-[11px] text-text-muted break-words">
+                    {preview.registrationError}
+                  </p>
+                )}
+              </div>
+            )}
             {preview.fileType?.startsWith('image/') && (
               <img
                 src={preview.url}
@@ -229,13 +311,24 @@ export default function UploadModal({ onClose, onSuccess }) {
                 className="w-full rounded-xl max-h-72 object-contain bg-black/30 ring-1 ring-border"
               />
             )}
-            <button type="button" onClick={handleDownload} className="btn-primary w-full">
+            {preview.offlinePackage && preview.offlineFileName && (
+              <button type="button" onClick={downloadRecoveryCopy} className="btn-primary w-full">
+                <Download size={16} />
+                Download Recovery Copy
+              </button>
+            )}
+            <button type="button" onClick={handleDownloadOriginal} className="btn-secondary w-full">
               <Download size={16} />
               Download {preview.fileName}
             </button>
             <p className="font-mono text-[11px] text-text-muted text-center leading-relaxed">
-              Also in your vault — retrieve anytime with Sign &amp; View
+              {recoveryDiscoveryLabel(preview.recoveryDiscoveryState)}
             </p>
+            {!registrationFailed && (
+              <p className="font-mono text-[11px] text-text-muted text-center leading-relaxed">
+                Also in your vault — retrieve anytime with Sign &amp; View
+              </p>
+            )}
             {preview.arweaveId && (
               <p className="font-mono text-[10px] text-text-muted text-center break-all px-2">
                 Archive ID: {preview.arweaveId}
@@ -243,8 +336,9 @@ export default function UploadModal({ onClose, onSuccess }) {
             )}
             {preview.offlineFileName && (
               <p className="font-body text-[11px] text-text-secondary text-center leading-relaxed">
-                An offline <span className="font-mono">.arkive</span> recovery copy was saved to your downloads.
-                Keep it (and your seed / passphrase) independent of this website.
+                Keep the offline <span className="font-mono">.arkive</span> recovery copy
+                (and your seed / passphrase) independent of this website.
+                {recoveryArtifactSaved ? ' Download recorded in this session.' : ' Use Download Recovery Copy if needed.'}
               </p>
             )}
           </div>

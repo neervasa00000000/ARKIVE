@@ -234,24 +234,34 @@ Metadata is encrypted under `K_file` using a fresh 12-byte IV, no AAD, and the s
 
 Beta: primary network is **Arweave** via Turbo upload.
 
-Discovery paths (any one is enough):
+`archiveId` and `storageLocations` are **discovery / location metadata**. They locate candidate encrypted bytes. They are **not** cryptographic proof that retrieved bytes are the correct archive, and they MUST NOT be treated as authenticated security assertions.
+
+Current discovery pointers are **untrusted discovery hints**. A recovery implementation MUST verify retrieved content with the archive’s existing cryptographic and integrity checks (§2, §9) before accepting recovered plaintext. Pointer-only mutation can change which remote object is fetched; it does not authenticate that object.
+
+Discovery paths (any one may supply bytes to verify):
 
 1. Offline `.arkive` file the user saved  
 2. Arweave TX id written in Base `VaultRegistry` (if Base still exists)  
 3. User-held Archive ID / Basescan history  
 4. Future replicas listed in `storageLocations`
 
+Absence of `archiveId` / `storageLocations` (legacy or unstamped archives) MUST NOT by itself cause rejection when the recoverer already holds valid archive bytes and an authorised unlock method.
+
 ---
 
 ## 9. Integrity verification
 
-Recommended for recovery tools:
+Recovery tools MUST NOT accept remotely retrieved bytes as successful recovery solely because an RID or URI pointed to them.
+
+Recommended verification order:
 
 1. Verify bundle magic + header length bounds  
-2. Verify `contentHash` (SHA-256 of ciphertext) when present — fail closed on mismatch  
-3. After unwrap, decrypt `encryptedMetadata` with `K_file` to obtain filename / MIME  
-4. Confirm decrypted plaintext size matches `originalFileSize` when set  
-5. Treat MIME / filename as advisory only — never execute recovered content
+2. When `contentHash` is present, verify it equals SHA-256 of the file ciphertext bytes — fail closed on mismatch. `contentHash` is an **unauthenticated checksum** checked during recovery; it is not a signature, MAC, or proof of ownership by itself.  
+3. Unwrap `K_file`, then decrypt content with AES-256-GCM (§2). GCM authentication MUST succeed before any plaintext is released. AES-GCM authentication is separate from the `contentHash` checksum.  
+4. After unwrap, decrypt `encryptedMetadata` with `K_file` to obtain filename / MIME  
+5. When `originalContentHash` is present in metadata, verify it against recovered plaintext — fail closed on mismatch  
+6. Confirm decrypted plaintext size matches `originalFileSize` when set  
+7. Treat MIME / filename as advisory only — never execute recovered content
 
 All SHA-256 operations hash the exact byte sequence identified by the field. `contentHash` hashes the complete encrypted file `C || T`, including its 16-byte authentication tag. `originalContentHash` hashes the recovered plaintext bytes. Hex comparison SHOULD be performed against exactly 64 lowercase hexadecimal characters; malformed values MUST be rejected rather than silently ignored.
 
