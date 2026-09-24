@@ -1,11 +1,9 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Activity, Archive, MessagesSquare, Settings, LifeBuoy } from 'lucide-react'
+import { Archive, MessagesSquare, Settings } from 'lucide-react'
 
 const links = [
   { path: '/vault', label: 'Vault', icon: Archive },
-  { path: '/activity', label: 'Activity', icon: Activity },
   { path: '/community', label: 'Community', icon: MessagesSquare },
-  { path: '/profile#recovery', label: 'Recovery', icon: LifeBuoy, recovery: true },
   { path: '/profile', label: 'Settings', icon: Settings },
 ]
 
@@ -14,11 +12,8 @@ export function SidebarNav({ onNavigate }) {
 
   return (
     <nav aria-label="Primary" className="flex flex-col gap-1">
-      {links.map(({ path, label, icon: Icon, recovery }) => {
-        const pathname = path.split('#')[0]
-        const active = recovery
-          ? location.pathname === pathname && location.hash === '#recovery'
-          : location.pathname === pathname && !(pathname === '/profile' && location.hash === '#recovery')
+      {links.map(({ path, label, icon: Icon }) => {
+        const active = location.pathname === path
         return (
           <Link
             key={path}
@@ -41,11 +36,8 @@ export function MobileNav() {
 
   return (
     <nav aria-label="Primary" className="flex items-center justify-around px-1 py-2">
-      {links.map(({ path, label, icon: Icon, recovery }) => {
-        const pathname = path.split('#')[0]
-        const active = recovery
-          ? location.pathname === pathname && location.hash === '#recovery'
-          : location.pathname === pathname && !(pathname === '/profile' && location.hash === '#recovery')
+      {links.map(({ path, label, icon: Icon }) => {
+        const active = location.pathname === path
         return (
           <Link
             key={path}

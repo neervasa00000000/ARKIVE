@@ -1,6 +1,5 @@
 import { useAccount, useReadContract, useWriteContract, useChainId } from 'wagmi'
-import { useState, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useState } from 'react'
 import { waitForTransactionReceipt } from '@wagmi/core'
 import { wagmiConfig } from '../config/wagmi'
 import { baseSepolia } from 'viem/chains'
@@ -11,10 +10,7 @@ import { useWalletState } from '../hooks/useWalletState'
 import UserRegistryABI from '../contracts/UserRegistry.json'
 import PointsSystemABI from '../contracts/PointsSystem.json'
 import { usePoints } from '../hooks/usePoints'
-import RecoveryGuide from '../components/RecoveryGuide'
 import PageHeader from '../components/PageHeader'
-import { WalletLinkerPanel } from '../components/WalletLinkerPanel'
-import RecoveryEvidencePanel from '../components/RecoveryEvidencePanel'
 import toast from 'react-hot-toast'
 
 const DEMO_PROFILE = {
@@ -25,7 +21,6 @@ const DEMO_PROFILE = {
 }
 
 export default function Profile() {
-  const location = useLocation()
   const wallet = useWalletState()
   const { address: wagmiAddress } = useAccount()
   const chainId = useChainId()
@@ -52,15 +47,6 @@ export default function Profile() {
     args: [address],
     enabled: !!address && !isDemoMode,
   })
-
-  useEffect(() => {
-    if (window.location.hash === '#recovery') {
-      const el = document.getElementById('recovery')
-      if (el) {
-        setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
-      }
-    }
-  }, [location.hash])
 
   async function handleRegister() {
     if (!username.trim()) return
@@ -214,18 +200,6 @@ export default function Profile() {
           </div>
 
       </div>
-
-      <section id="recovery" className="scroll-mt-8 pt-8 border-t border-line">
-        <h2 className="page-title text-xl mb-2">Recovery access</h2>
-        <p className="page-desc mb-6">
-          Connect up to two backup wallets and keep an independent offline copy.
-        </p>
-        <WalletLinkerPanel />
-        <div className="mt-4" />
-        <RecoveryEvidencePanel />
-        <div className="mt-4" />
-        <RecoveryGuide embedded />
-      </section>
     </div>
   )
 }

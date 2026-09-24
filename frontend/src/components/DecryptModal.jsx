@@ -4,7 +4,6 @@ import { useAccount } from 'wagmi'
 import { useVault } from '../hooks/useVault'
 import { vaultErrorMessage } from '../lib/setupStatus'
 import { sanitizeFileName, needsDownloadWarning } from '../lib/security'
-import { Link } from 'react-router-dom'
 import { Modal, ModalHeader, ModalBody } from './Modal'
 
 export default function DecryptModal({ file, onClose }) {
@@ -106,7 +105,6 @@ export default function DecryptModal({ file, onClose }) {
             {error && (
               <div role="alert" className="text-sm leading-relaxed text-amber-200">
                 <p>{error}</p>
-                <Link to="/recover" className="underline inline-block mt-2">Use an offline backup</Link>
               </div>
             )}
             <details className="text-xs text-text-muted">
