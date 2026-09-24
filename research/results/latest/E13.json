@@ -1,0 +1,54 @@
+{
+  "experiment": "E13",
+  "description": "Recovery Specification v1 sufficiency and cross-implementation conformance",
+  "timestamp": "2026-09-24T02:04:07.248Z",
+  "gitCommit": "aaa7b413fdc4fb373c03b835d4620f461e6d5a59",
+  "gitDirty": true,
+  "fixture": "research/fixtures/archives/passphrase-v1.arkive",
+  "fixtureArchiveSha256": "1fe29c24402ff3e44b46882705bfceb86035295f3f81cb715823dc6878b705af",
+  "removedDependencies": [
+    "undocumented_wire_format_assumptions"
+  ],
+  "availableDependencies": [
+    "clarified_recovery_spec_v1",
+    "published_conformance_vectors",
+    "node_implementation",
+    "python_implementation"
+  ],
+  "expectedOutcome": "SPECIFICATION_CONFORMANCE",
+  "actualOutcome": "RECOVERY_SUCCESS",
+  "errorClassification": null,
+  "expectedPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+  "recoveredPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+  "exactByteMatch": true,
+  "externalEndpointsContacted": [],
+  "durationMs": 1997,
+  "specificationConformance": "PASS",
+  "nodeConformance": {
+    "implementation": "Node WebCrypto + arkive-recover black box",
+    "deterministicVectors": "PASS",
+    "archiveRecovery": "PASS",
+    "negativeVectors": {
+      "wrongCredential": "WRONG_CREDENTIAL_OR_CORRUPT_KEY_WRAP",
+      "ciphertextCorruption": "CONTENT_HASH_MISMATCH",
+      "unsupportedVersion": "UNSUPPORTED_BUNDLE_VERSION"
+    },
+    "plaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "result": "PASS"
+  },
+  "pythonConformance": {
+    "implementation": "independent Python",
+    "deterministicVectors": "PASS",
+    "archiveRecovery": "PASS",
+    "negativeVectors": {
+      "wrongCredential": "WRONG_CREDENTIAL_OR_CORRUPT_KEY_WRAP",
+      "ciphertextCorruption": "CONTENT_HASH_MISMATCH",
+      "unsupportedVersion": "UNSUPPORTED_BUNDLE_VERSION"
+    },
+    "plaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "result": "PASS"
+  },
+  "independentSpecificationOnlyReimplementation": "NOT VALIDATED",
+  "limitation": "The Python implementation predates the clarified specification, so this run cannot establish that a fresh implementer could derive compatibility from the document alone.",
+  "result": "NOT VALIDATED"
+}

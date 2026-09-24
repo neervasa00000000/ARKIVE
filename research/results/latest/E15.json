@@ -1,0 +1,452 @@
+{
+  "experiment": "E15",
+  "timestamps": {
+    "executedAt": "2026-09-24T02:02:45.314Z",
+    "fixtureCreatedAt": "2026-09-24T02:02:42.672Z"
+  },
+  "preregistrationStatus": "COMPLETE_BEFORE_EXECUTION",
+  "preregistrationVerification": {
+    "frozenAfterManifestRepair": true,
+    "missingFromPreregistrationOrMethod": [
+      "RQ-E15-C",
+      "H15-C",
+      "explicit E15-C success criteria in preregistration",
+      "dependency classifications detail in preregistration",
+      "specification ambiguity rule in preregistration",
+      "production-preservation rule in preregistration"
+    ]
+  },
+  "preregistrationHashes": {
+    "research/preregistration/E15.md": "0e2652fbaa9ca8a4b3553ad23944e78be0b8cad1b17c58bf7eeb34cbb0ee79d9",
+    "research/e15-wallet/E15-METHOD.json": "66ddaa7ca070548707f3e714999028a77e79596428e6ef7bcd5b98b1ca231af6",
+    "docs/RECOVERY-SPEC.md": "fbacf4bea21468fd3978f332013a402b24d7f40d7700d94165b1f81c33ce3f05"
+  },
+  "preRunManifestHash": "d01b4e8013a34e541fa9e8a15add16b88fca09e3c5f1ca5f62412df958fadf3f",
+  "fixtureHash": "490264075caa43eb28c8113b31989627e4d3702525bf6255f35fa4cbac31c7c6",
+  "expectedPlaintextHash": "8d53750ffa9958cfd929e95fd7006111ea530db9504c8f4383801be0b7d5c3af",
+  "syntheticWalletAddress": "0xb8b4af2eaab2bbfac74a695670af45d095b721a9",
+  "fixturePath": "/Users/neervasa/Desktop/Web3/research/fixtures/e15/e15-wallet-wrap-v3.arkive",
+  "fixtureMetadataPath": "/Users/neervasa/Desktop/Web3/research/fixtures/e15/fixture.json",
+  "eip712Domain": {
+    "name": "ARKIVE",
+    "version": "2",
+    "chainId": 84532,
+    "verifyingContract": "0xe3ee4509f8da48f33E43EaC9d8F7bb05E8024589"
+  },
+  "eip712Types": {
+    "VaultKeyDerivation": [
+      {
+        "name": "purpose",
+        "type": "string"
+      },
+      {
+        "name": "wallet",
+        "type": "address"
+      }
+    ]
+  },
+  "primaryType": "VaultKeyDerivation",
+  "message": {
+    "purpose": "VAULT_KEY_DERIVATION",
+    "wallet": "0xb8b4af2eaab2bbfac74a695670af45d095b721a9"
+  },
+  "implementationA": {
+    "nodeVersion": "v22.16.0",
+    "ethersVersion": "6.17.0",
+    "signingAPI": "ethers.Wallet.signTypedData(domain, types, message)",
+    "signatureBytes": "0xd7ac83c00ebcbef2975fc7bcc9c1653f6cfa514e5740b0bf60951fbb27ca3d021f27369b1bdfd7684570a282f171693be9862e0fb9826ca514048c0e48b2b0761c",
+    "r": "0xd7ac83c00ebcbef2975fc7bcc9c1653f6cfa514e5740b0bf60951fbb27ca3d02",
+    "s": "0x1f27369b1bdfd7684570a282f171693be9862e0fb9826ca514048c0e48b2b076",
+    "v": 28,
+    "signatureValidity": true,
+    "recoveredSigner": "0xb8b4aF2EaAb2BBfac74A695670af45D095b721A9",
+    "signatureKeccak": "0xce1707ed8c9d43d3468dbcb1fa6eee584316c2307638a792a4289008f2ab9a02",
+    "wrapKeyHash": "70cb777f3254c3ba9d99fb9a1e636eaf9aa86bd0a3dc5bef0157f707b74dfd95",
+    "unwrap": true,
+    "fileKeyHash": "308c5424f0ddd1982051fc631d7c69b412656cc48cd5b6c5c7cca2a4e18251fa",
+    "plaintextSha256": "8d53750ffa9958cfd929e95fd7006111ea530db9504c8f4383801be0b7d5c3af"
+  },
+  "implementationB": {
+    "externalEndpointsContacted": [],
+    "fileKeyHash": "308c5424f0ddd1982051fc631d7c69b412656cc48cd5b6c5c7cca2a4e18251fa",
+    "libraries": {
+      "eth-account": "0.14.0",
+      "pycryptodome": "3.23.0"
+    },
+    "negativeTests": [
+      {
+        "failedClosed": true,
+        "message": "MAC check failed",
+        "name": "wrong private key",
+        "outcome": "ValueError"
+      },
+      {
+        "failedClosed": true,
+        "message": "MAC check failed",
+        "name": "modified EIP-712 message",
+        "outcome": "ValueError"
+      },
+      {
+        "failedClosed": true,
+        "message": "MAC check failed",
+        "name": "modified domain",
+        "outcome": "ValueError"
+      },
+      {
+        "failedClosed": true,
+        "message": "MAC check failed",
+        "name": "modified chainId",
+        "outcome": "ValueError"
+      },
+      {
+        "failedClosed": true,
+        "message": "MAC check failed",
+        "name": "modified verifyingContract",
+        "outcome": "ValueError"
+      },
+      {
+        "failedClosed": true,
+        "message": "MAC check failed",
+        "name": "modified signature byte",
+        "outcome": "ValueError"
+      },
+      {
+        "failedClosed": true,
+        "message": "MAC check failed",
+        "name": "wrong wallet-wrap IV",
+        "outcome": "ValueError"
+      },
+      {
+        "failedClosed": true,
+        "message": "MAC check failed",
+        "name": "corrupted wrapped file key",
+        "outcome": "ValueError"
+      },
+      {
+        "failedClosed": true,
+        "message": "NO_WALLET_WRAP",
+        "name": "unauthorized wallet",
+        "outcome": "ValueError"
+      },
+      {
+        "failedClosed": true,
+        "message": "UNSUPPORTED_KEY_DERIVATION",
+        "name": "unsupported derivation version",
+        "outcome": "ValueError"
+      }
+    ],
+    "networkAvailableDuringIndependentRecovery": false,
+    "plaintextBytesEqualExpected": true,
+    "plaintextLength": 89,
+    "plaintextSha256": "8d53750ffa9958cfd929e95fd7006111ea530db9504c8f4383801be0b7d5c3af",
+    "pythonVersion": "3.13.2",
+    "r": "0xd7ac83c00ebcbef2975fc7bcc9c1653f6cfa514e5740b0bf60951fbb27ca3d02",
+    "recoveredSigner": "0xb8b4aF2EaAb2BBfac74A695670af45D095b721A9",
+    "s": "0x1f27369b1bdfd7684570a282f171693be9862e0fb9826ca514048c0e48b2b076",
+    "signatureBytes": "0xd7ac83c00ebcbef2975fc7bcc9c1653f6cfa514e5740b0bf60951fbb27ca3d021f27369b1bdfd7684570a282f171693be9862e0fb9826ca514048c0e48b2b0761c",
+    "signatureKeccak": "0xce1707ed8c9d43d3468dbcb1fa6eee584316c2307638a792a4289008f2ab9a02",
+    "signatureRepresentationTests": [
+      {
+        "error": null,
+        "expectedSigner": true,
+        "keccakEqual": true,
+        "name": "r||s||v baseline",
+        "rawBytesEqual": true,
+        "recoveredSigner": "0xb8b4aF2EaAb2BBfac74A695670af45D095b721A9",
+        "recoverySucceeds": true,
+        "verifies": true,
+        "wrapKeyEqual": true
+      },
+      {
+        "error": null,
+        "expectedSigner": true,
+        "keccakEqual": true,
+        "name": "v = 27/28",
+        "rawBytesEqual": true,
+        "recoveredSigner": "0xb8b4aF2EaAb2BBfac74A695670af45D095b721A9",
+        "recoverySucceeds": true,
+        "verifies": true,
+        "wrapKeyEqual": true
+      },
+      {
+        "error": null,
+        "expectedSigner": true,
+        "keccakEqual": false,
+        "name": "v = 0/1",
+        "rawBytesEqual": false,
+        "recoveredSigner": "0xb8b4aF2EaAb2BBfac74A695670af45D095b721A9",
+        "recoverySucceeds": false,
+        "verifies": true,
+        "wrapKeyEqual": false
+      },
+      {
+        "error": null,
+        "expectedSigner": true,
+        "keccakEqual": true,
+        "name": "0x prefix removed then decoded",
+        "rawBytesEqual": true,
+        "recoveredSigner": "0xb8b4aF2EaAb2BBfac74A695670af45D095b721A9",
+        "recoverySucceeds": true,
+        "verifies": true,
+        "wrapKeyEqual": true
+      },
+      {
+        "error": null,
+        "expectedSigner": true,
+        "keccakEqual": true,
+        "name": "uppercase hex decoded",
+        "rawBytesEqual": true,
+        "recoveredSigner": "0xb8b4aF2EaAb2BBfac74A695670af45D095b721A9",
+        "recoverySucceeds": true,
+        "verifies": true,
+        "wrapKeyEqual": true
+      },
+      {
+        "error": "Invalid signature",
+        "expectedSigner": false,
+        "keccakEqual": false,
+        "name": "modified signature byte",
+        "rawBytesEqual": false,
+        "recoveredSigner": null,
+        "recoverySucceeds": false,
+        "verifies": false,
+        "wrapKeyEqual": false
+      }
+    ],
+    "signatureValidity": true,
+    "signingAPI": "eth_account.Account.sign_message(encode_typed_data(...))",
+    "unwrap": true,
+    "v": 28,
+    "wrapKeyHash": "70cb777f3254c3ba9d99fb9a1e636eaf9aa86bd0a3dc5bef0157f707b74dfd95"
+  },
+  "signatureAVerifies": true,
+  "signatureBVerifies": true,
+  "signerA": "0xb8b4aF2EaAb2BBfac74A695670af45D095b721A9",
+  "signerB": "0xb8b4aF2EaAb2BBfac74A695670af45D095b721A9",
+  "rEqual": true,
+  "sEqual": true,
+  "vEqual": true,
+  "signatureBytesEqual": true,
+  "signatureKeccakA": "0xce1707ed8c9d43d3468dbcb1fa6eee584316c2307638a792a4289008f2ab9a02",
+  "signatureKeccakB": "0xce1707ed8c9d43d3468dbcb1fa6eee584316c2307638a792a4289008f2ab9a02",
+  "signatureKeccakEqual": true,
+  "wrapKeyHashA": "70cb777f3254c3ba9d99fb9a1e636eaf9aa86bd0a3dc5bef0157f707b74dfd95",
+  "wrapKeyHashB": "70cb777f3254c3ba9d99fb9a1e636eaf9aa86bd0a3dc5bef0157f707b74dfd95",
+  "wrapKeyEqual": true,
+  "unwrapA": true,
+  "unwrapB": true,
+  "fileKeyHashA": "308c5424f0ddd1982051fc631d7c69b412656cc48cd5b6c5c7cca2a4e18251fa",
+  "fileKeyHashB": "308c5424f0ddd1982051fc631d7c69b412656cc48cd5b6c5c7cca2a4e18251fa",
+  "fileKeyEqual": true,
+  "plaintextHashA": "8d53750ffa9958cfd929e95fd7006111ea530db9504c8f4383801be0b7d5c3af",
+  "plaintextHashB": "8d53750ffa9958cfd929e95fd7006111ea530db9504c8f4383801be0b7d5c3af",
+  "plaintextHashMatches": true,
+  "exactBytesEqual": true,
+  "networkAvailableDuringIndependentRecovery": false,
+  "externalEndpointsContacted": [],
+  "signatureRepresentationTests": [
+    {
+      "error": null,
+      "expectedSigner": true,
+      "keccakEqual": true,
+      "name": "r||s||v baseline",
+      "rawBytesEqual": true,
+      "recoveredSigner": "0xb8b4aF2EaAb2BBfac74A695670af45D095b721A9",
+      "recoverySucceeds": true,
+      "verifies": true,
+      "wrapKeyEqual": true
+    },
+    {
+      "error": null,
+      "expectedSigner": true,
+      "keccakEqual": true,
+      "name": "v = 27/28",
+      "rawBytesEqual": true,
+      "recoveredSigner": "0xb8b4aF2EaAb2BBfac74A695670af45D095b721A9",
+      "recoverySucceeds": true,
+      "verifies": true,
+      "wrapKeyEqual": true
+    },
+    {
+      "error": null,
+      "expectedSigner": true,
+      "keccakEqual": false,
+      "name": "v = 0/1",
+      "rawBytesEqual": false,
+      "recoveredSigner": "0xb8b4aF2EaAb2BBfac74A695670af45D095b721A9",
+      "recoverySucceeds": false,
+      "verifies": true,
+      "wrapKeyEqual": false
+    },
+    {
+      "error": null,
+      "expectedSigner": true,
+      "keccakEqual": true,
+      "name": "0x prefix removed then decoded",
+      "rawBytesEqual": true,
+      "recoveredSigner": "0xb8b4aF2EaAb2BBfac74A695670af45D095b721A9",
+      "recoverySucceeds": true,
+      "verifies": true,
+      "wrapKeyEqual": true
+    },
+    {
+      "error": null,
+      "expectedSigner": true,
+      "keccakEqual": true,
+      "name": "uppercase hex decoded",
+      "rawBytesEqual": true,
+      "recoveredSigner": "0xb8b4aF2EaAb2BBfac74A695670af45D095b721A9",
+      "recoverySucceeds": true,
+      "verifies": true,
+      "wrapKeyEqual": true
+    },
+    {
+      "error": "Invalid signature",
+      "expectedSigner": false,
+      "keccakEqual": false,
+      "name": "modified signature byte",
+      "rawBytesEqual": false,
+      "recoveredSigner": null,
+      "recoverySucceeds": false,
+      "verifies": false,
+      "wrapKeyEqual": false
+    }
+  ],
+  "negativeTests": [
+    {
+      "failedClosed": true,
+      "message": "MAC check failed",
+      "name": "wrong private key",
+      "outcome": "ValueError"
+    },
+    {
+      "failedClosed": true,
+      "message": "MAC check failed",
+      "name": "modified EIP-712 message",
+      "outcome": "ValueError"
+    },
+    {
+      "failedClosed": true,
+      "message": "MAC check failed",
+      "name": "modified domain",
+      "outcome": "ValueError"
+    },
+    {
+      "failedClosed": true,
+      "message": "MAC check failed",
+      "name": "modified chainId",
+      "outcome": "ValueError"
+    },
+    {
+      "failedClosed": true,
+      "message": "MAC check failed",
+      "name": "modified verifyingContract",
+      "outcome": "ValueError"
+    },
+    {
+      "failedClosed": true,
+      "message": "MAC check failed",
+      "name": "modified signature byte",
+      "outcome": "ValueError"
+    },
+    {
+      "failedClosed": true,
+      "message": "MAC check failed",
+      "name": "wrong wallet-wrap IV",
+      "outcome": "ValueError"
+    },
+    {
+      "failedClosed": true,
+      "message": "MAC check failed",
+      "name": "corrupted wrapped file key",
+      "outcome": "ValueError"
+    },
+    {
+      "failedClosed": true,
+      "message": "NO_WALLET_WRAP",
+      "name": "unauthorized wallet",
+      "outcome": "ValueError"
+    },
+    {
+      "failedClosed": true,
+      "message": "UNSUPPORTED_KEY_DERIVATION",
+      "name": "unsupported derivation version",
+      "outcome": "ValueError"
+    }
+  ],
+  "removedDependencies": [
+    "MetaMask",
+    "RainbowKit",
+    "wagmi",
+    "WalletConnect",
+    "browser",
+    "ARKIVE frontend",
+    "ARKIVE wallet hooks",
+    "backend",
+    "Base",
+    "Base RPC",
+    "VaultRegistry runtime lookup",
+    "network",
+    "original wallet software"
+  ],
+  "requiredDependencies": [
+    "authorized private-key capability",
+    "secp256k1",
+    "ECDSA",
+    "EIP-712 semantics",
+    "EIP-712 domain",
+    "EIP-712 types",
+    "EIP-712 message",
+    "signature representation compatible with stored wrap",
+    "Keccak-256",
+    "AES-256-GCM",
+    "archive bytes",
+    "archive-format knowledge"
+  ],
+  "substitutableDependencies": [
+    "programming language",
+    "crypto library",
+    "seed representation"
+  ],
+  "dependencyClassifications": {
+    "MetaMask": "REMOVABLE",
+    "RainbowKit": "REMOVABLE",
+    "wagmi": "REMOVABLE",
+    "WalletConnect": "REMOVABLE",
+    "browser": "REMOVABLE",
+    "ARKIVE frontend": "REMOVABLE",
+    "ARKIVE wallet hooks": "REMOVABLE",
+    "backend": "REMOVABLE",
+    "Base": "REMOVABLE",
+    "Base RPC": "REMOVABLE",
+    "VaultRegistry": "DISCOVERY_ONLY",
+    "network": "REMOVABLE",
+    "original wallet software": "REMOVABLE",
+    "programming language": "SUBSTITUTABLE",
+    "crypto library": "SUBSTITUTABLE",
+    "seed representation": "SUBSTITUTABLE",
+    "authorized private-key capability": "REQUIRED",
+    "secp256k1": "REQUIRED",
+    "ECDSA": "REQUIRED",
+    "EIP-712 semantics": "REQUIRED",
+    "EIP-712 domain": "REQUIRED",
+    "EIP-712 types": "REQUIRED",
+    "EIP-712 message": "REQUIRED",
+    "signature representation": "REQUIRED",
+    "signature reproducibility": "SUBSTITUTABLE",
+    "Keccak-256": "REQUIRED",
+    "AES-256-GCM": "REQUIRED",
+    "archive bytes": "REQUIRED",
+    "archive-format knowledge": "REQUIRED"
+  },
+  "hiddenDependency": null,
+  "specificationAmbiguity": "SPECIFICATION_AMBIGUITY_DETECTED",
+  "limitations": [
+    "Synthetic EOA wallet-wrapped v3 archive only.",
+    "No real wallet, funded wallet, seed phrase, production credential, Base RPC, or browser wallet was used.",
+    "The preregistration artifacts in the current repository state do not explicitly contain all Step 1 requested tokens; they were preserved rather than rewritten."
+  ],
+  "E15AClassification": "PASS",
+  "E15BClassification": "PASS",
+  "E15CClassification": "PASS"
+}

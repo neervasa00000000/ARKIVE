@@ -1,0 +1,17 @@
+{
+  "experiment": "E15",
+  "preregistrationStatus": "COMPLETE_BEFORE_EXECUTION",
+  "manifestCompletedAt": "2026-09-24T01:58:59Z",
+  "manifestCompletionNote": "E15-PRE-RUN-MANIFEST.json was empty after the prior tooling interruption. Only the missing pre-run manifest fields were completed before any E15 signing, fixture generation, recovery, or experiment execution.",
+  "files": {
+    "research/preregistration/E15.md": {
+      "sha256": "0e2652fbaa9ca8a4b3553ad23944e78be0b8cad1b17c58bf7eeb34cbb0ee79d9"
+    },
+    "research/e15-wallet/E15-METHOD.json": {
+      "sha256": "66ddaa7ca070548707f3e714999028a77e79596428e6ef7bcd5b98b1ca231af6"
+    },
+    "docs/RECOVERY-SPEC.md": {
+      "sha256": "fbacf4bea21468fd3978f332013a402b24d7f40d7700d94165b1f81c33ce3f05"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "fixtureVersion": 1,
+  "archive": "archives/passphrase-v1.arkive",
+  "plaintext": "plaintext/recovery-test.bin",
+  "plaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+  "ciphertextSha256": "3fc5fa50254a506386add649abcf10f4f1139e21a501a55ca27d42eb4dcfe876",
+  "archiveSha256": "1fe29c24402ff3e44b46882705bfceb86035295f3f81cb715823dc6878b705af",
+  "bundleVersion": 3,
+  "recoverySpecVersion": "1",
+  "unlockMethod": "passphrase-v1"
+}

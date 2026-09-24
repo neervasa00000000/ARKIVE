@@ -1,0 +1,45 @@
+{
+  "experimentId": "INDEPENDENT-RECOVERY",
+  "timestamp": "2026-09-24T02:03:58.929906+00:00",
+  "gitCommit": "aaa7b413fdc4fb373c03b835d4620f461e6d5a59",
+  "implementationLanguage": "Python 3",
+  "librariesUsed": [
+    "Python standard library",
+    "cryptography 47.0.0"
+  ],
+  "specificationFilesConsulted": [
+    "docs/RECOVERY-SPEC.md"
+  ],
+  "implementationAuthoredAgainst": "Recovery Specification v1 before the 2026-09-24 interoperability clarification",
+  "arkiveProductionOrRecoverySourceConsulted": false,
+  "fixture": "research/fixtures/archives/passphrase-v1.arkive",
+  "expectedSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+  "implementationASha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+  "implementationBSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+  "exactByteEquality": true,
+  "wrongCredentialResult": {
+    "implementationA": "REJECTED",
+    "implementationB": "REJECTED",
+    "bothFailClosed": true
+  },
+  "corruptionResult": {
+    "implementationA": "REJECTED",
+    "implementationB": "REJECTED",
+    "bothFailClosed": true
+  },
+  "unsupportedVersionResult": {
+    "implementationA": "REJECTED",
+    "implementationB": "REJECTED",
+    "bothFailClosed": true
+  },
+  "specificationAmbiguities": [
+    "Passphrase character encoding and Unicode normalization are not explicit.",
+    "AES-GCM authentication tag length and ciphertext/tag serialization are not explicit.",
+    "AES-GCM additional authenticated data presence and encoding are not explicit.",
+    "Decrypted metadata JSON character encoding is not explicit."
+  ],
+  "functionalInteroperability": "PASS",
+  "specificationSufficiencyFinding": "HISTORICAL SPECIFICATION INSUFFICIENT",
+  "currentClarifiedSpecificationAssessment": "OUT OF SCOPE \u2014 see E13",
+  "result": "NOT VALIDATED"
+}

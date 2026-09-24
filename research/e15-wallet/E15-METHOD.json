@@ -1,0 +1,64 @@
+{
+  "experiment": "E15",
+  "dateTime": "[Insert current date/time]",
+  "researchQuestions": {
+    "E15-A": "Can recovery be performed without the original wallet application and integration stack?",
+    "E15-B": "Is possession of equivalent signing authority sufficient for recovery, or does recovery depend on reproducing exact historical ECDSA signature bytes?"
+  },
+  "hypotheses": [
+    "Recovery can be performed independently of the original wallet application and integration stack.",
+    "Equivalent signing authority is sufficient for recovery without requiring exact signature byte reproduction."
+  ],
+  "allowedInputs": [
+    "Encrypted ARKIVE v3 wallet-wrapped archive",
+    "Authorized synthetic EOA private key",
+    "Documented EIP-712 signing semantics",
+    "Documented ARKIVE wallet-wrap semantics",
+    "Compatible cryptographic primitives"
+  ],
+  "forbiddenDependencies": [
+    "MetaMask",
+    "RainbowKit",
+    "wagmi",
+    "WalletConnect",
+    "ARKIVE frontend",
+    "wallet hooks",
+    "backend",
+    "Base RPC",
+    "Base blockchain",
+    "VaultRegistry",
+    "Internet/network access",
+    "Browser state",
+    "Local cache"
+  ],
+  "successCriteria": [
+    "Recovery succeeds without forbidden dependencies.",
+    "Signature reproducibility is validated experimentally."
+  ],
+  "failureCriteria": [
+    "Recovery fails due to missing dependencies.",
+    "Signature reproducibility dependency is detected."
+  ],
+  "implementationLanguage": {
+    "reference": "JavaScript/TypeScript",
+    "independent": "Python"
+  },
+  "cryptoLibrariesPlanned": {
+    "reference": "ethers.js",
+    "independent": ["pycryptodome", "eth-account"]
+  },
+  "expectedDependencyRemovalTargets": [
+    "Original wallet application and integration stack"
+  ],
+  "expectedClassifications": [
+    "REQUIRED",
+    "SUBSTITUTABLE",
+    "REMOVABLE",
+    "DISCOVERY_ONLY",
+    "CONVENIENCE",
+    "REDUNDANT",
+    "UNVALIDATED"
+  ],
+  "productionCodeInspection": true,
+  "preExistingImplementation": false
+}

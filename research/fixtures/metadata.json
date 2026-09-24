@@ -1,0 +1,9 @@
+{
+  "fixtureVersion": 1,
+  "classification": "SYNTHETIC TEST DATA",
+  "createdFor": "Recovery Dependency Surface experiments",
+  "credentialNotice": "TEST ONLY - NOT A REAL SECRET",
+  "testOnlyPassphrase": "TEST ONLY - ARKIVE recovery fixture 2026",
+  "generationCommand": "node research/fixtures/generate-fixtures.mjs",
+  "productionRandomnessPreserved": true
+}

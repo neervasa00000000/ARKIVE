@@ -1,0 +1,43 @@
+{
+  "exercise": "E14 Blind Specification-Only Recovery Reimplementation",
+  "language": "Java",
+  "runtimeVersion": "Java 17.0.14 (Java(TM) SE Runtime Environment build 17.0.14+8-LTS-191)",
+  "cryptoLibraries": [
+    "Java Cryptography Architecture providers bundled with Java 17: MessageDigest SHA-256, Mac HmacSHA256 (PBKDF2 primitive), Cipher AES/GCM/NoPadding"
+  ],
+  "exactSuppliedFiles": [
+    "/private/tmp/arkive-e14-package/RECOVERY-SPEC.md",
+    "/private/tmp/arkive-e14-package/conformance/README.md",
+    "/private/tmp/arkive-e14-package/conformance/vectors.json",
+    "/private/tmp/arkive-e14-package/fixture/passphrase-v1.arkive"
+  ],
+  "syntheticCredentialMechanism": "Direct test-only passphrase supplied in conformance/vectors.json at fixtureRecovery.testOnlyPassphrase",
+  "externalDocumentationConsulted": [],
+  "sourceConsulted": {
+    "workspaceRepository": false,
+    "parentOrSiblingRepository": false,
+    "arkiveSource": false,
+    "existingNodeRecoveryImplementation": false,
+    "existingPythonRecoveryImplementation": false,
+    "github": false,
+    "priorResults": false,
+    "internet": false
+  },
+  "ambiguities": [
+    {
+      "topic": "Encrypted metadata JSON field order",
+      "specificationText": "RECOVERY-SPEC.md section 7.1 says the historical current-writer order begins with originalContentHash.",
+      "vectorEvidence": "conformance/vectors.json fixtureRecovery.metadataPlaintextUtf8 places originalContentHash last.",
+      "competingInterpretations": [
+        "Require the prose-described historical order.",
+        "Parse metadata by field name regardless of order."
+      ],
+      "resolution": "Non-blocking: section 7.1 explicitly says readers MUST parse by field name and MUST NOT require order, so the second interpretation is normative for recovery."
+    }
+  ],
+  "implementationStartTimestamp": "2026-09-23T16:07:46Z",
+  "postRunRecordAmendment": {
+    "timestamp": "2026-09-23T16:16:10Z",
+    "reason": "Corrected the crypto library inventory from the initially planned SecretKeyFactory PBKDF2WithHmacSHA256 to the actually implemented byte-oriented Mac HmacSHA256 PBKDF2 primitive. No recovery parameters, source evidence, ambiguity assessment, or test result changed."
+  }
+}

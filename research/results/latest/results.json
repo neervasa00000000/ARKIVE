@@ -1,0 +1,394 @@
+[
+  {
+    "experiment": "E01",
+    "description": "Baseline local archive recovery",
+    "timestamp": "2026-09-23T16:00:12.500Z",
+    "gitCommit": "aaa7b413fdc4fb373c03b835d4620f461e6d5a59",
+    "gitDirty": true,
+    "fixture": "research/fixtures/archives/passphrase-v1.arkive",
+    "fixtureArchiveSha256": "1fe29c24402ff3e44b46882705bfceb86035295f3f81cb715823dc6878b705af",
+    "removedDependencies": [],
+    "availableDependencies": [
+      "local_archive",
+      "node_crypto",
+      "arkive_recover",
+      "test_credential"
+    ],
+    "expectedOutcome": "RECOVERY_SUCCESS",
+    "expectedPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "actualOutcome": "RECOVERY_SUCCESS",
+    "errorClassification": null,
+    "recoveredPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "exactByteMatch": true,
+    "externalEndpointsContacted": [],
+    "durationMs": 137,
+    "result": "PASS"
+  },
+  {
+    "experiment": "E02",
+    "description": "ARKIVE frontend unavailable",
+    "timestamp": "2026-09-23T16:00:12.500Z",
+    "gitCommit": "aaa7b413fdc4fb373c03b835d4620f461e6d5a59",
+    "gitDirty": true,
+    "fixture": "research/fixtures/archives/passphrase-v1.arkive",
+    "fixtureArchiveSha256": "1fe29c24402ff3e44b46882705bfceb86035295f3f81cb715823dc6878b705af",
+    "removedDependencies": [
+      "arkive_frontend"
+    ],
+    "availableDependencies": [
+      "local_archive",
+      "node_crypto",
+      "arkive_recover",
+      "test_credential"
+    ],
+    "expectedOutcome": "RECOVERY_SUCCESS",
+    "expectedPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "actualOutcome": "RECOVERY_SUCCESS",
+    "errorClassification": null,
+    "recoveredPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "exactByteMatch": true,
+    "externalEndpointsContacted": [],
+    "durationMs": 129,
+    "result": "PASS"
+  },
+  {
+    "experiment": "E03",
+    "description": "ARKIVE backend unavailable",
+    "timestamp": "2026-09-23T16:00:12.500Z",
+    "gitCommit": "aaa7b413fdc4fb373c03b835d4620f461e6d5a59",
+    "gitDirty": true,
+    "fixture": "research/fixtures/archives/passphrase-v1.arkive",
+    "fixtureArchiveSha256": "1fe29c24402ff3e44b46882705bfceb86035295f3f81cb715823dc6878b705af",
+    "removedDependencies": [
+      "arkive_backend",
+      "network"
+    ],
+    "availableDependencies": [
+      "local_archive",
+      "node_crypto",
+      "arkive_recover",
+      "test_credential"
+    ],
+    "expectedOutcome": "RECOVERY_SUCCESS",
+    "expectedPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "actualOutcome": "RECOVERY_SUCCESS",
+    "errorClassification": null,
+    "recoveredPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "exactByteMatch": true,
+    "externalEndpointsContacted": [],
+    "durationMs": 147,
+    "result": "PASS"
+  },
+  {
+    "experiment": "E04",
+    "description": "Base RPC and VaultRegistry unavailable",
+    "timestamp": "2026-09-23T16:00:12.500Z",
+    "gitCommit": "aaa7b413fdc4fb373c03b835d4620f461e6d5a59",
+    "gitDirty": true,
+    "fixture": "research/fixtures/archives/passphrase-v1.arkive",
+    "fixtureArchiveSha256": "1fe29c24402ff3e44b46882705bfceb86035295f3f81cb715823dc6878b705af",
+    "removedDependencies": [
+      "base_rpc",
+      "vault_registry",
+      "network"
+    ],
+    "availableDependencies": [
+      "local_archive",
+      "node_crypto",
+      "arkive_recover",
+      "test_credential"
+    ],
+    "expectedOutcome": "RECOVERY_SUCCESS",
+    "expectedPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "actualOutcome": "RECOVERY_SUCCESS",
+    "errorClassification": null,
+    "recoveredPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "exactByteMatch": true,
+    "externalEndpointsContacted": [],
+    "durationMs": 149,
+    "result": "PASS"
+  },
+  {
+    "experiment": "E05",
+    "description": "Original Arweave gateway unavailable",
+    "timestamp": "2026-09-23T16:00:14.109Z",
+    "gitCommit": "aaa7b413fdc4fb373c03b835d4620f461e6d5a59",
+    "gitDirty": true,
+    "fixture": "research/fixtures/archives/passphrase-v1.arkive",
+    "fixtureArchiveSha256": "1fe29c24402ff3e44b46882705bfceb86035295f3f81cb715823dc6878b705af",
+    "ciphertextSha256": "3fc5fa50254a506386add649abcf10f4f1139e21a501a55ca27d42eb4dcfe876",
+    "transactionStorageIdentifier": null,
+    "removedDependencies": [
+      "primary_arweave_gateway"
+    ],
+    "availableDependencies": [],
+    "expectedOutcome": "RECOVERY_SUCCESS",
+    "actualOutcome": "ENVIRONMENT_UNAVAILABLE",
+    "errorClassification": "The committed synthetic fixture has no Arweave transaction ID; creating one may require a funded upload and was not authorized.",
+    "gatewayA": null,
+    "gatewayB": null,
+    "gatewayBIndependentOperatorEstablished": false,
+    "retrievedArchiveASha256": null,
+    "retrievedArchiveBSha256": null,
+    "expectedPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "recoveredPlaintextSha256": null,
+    "exactByteMatch": null,
+    "externalEndpointsContacted": [],
+    "durationMs": 0,
+    "result": "SKIPPED"
+  },
+  {
+    "experiment": "E06",
+    "description": "Original wallet application unavailable",
+    "timestamp": "2026-09-23T16:00:12.500Z",
+    "gitCommit": "aaa7b413fdc4fb373c03b835d4620f461e6d5a59",
+    "gitDirty": true,
+    "fixture": "research/fixtures/archives/passphrase-v1.arkive",
+    "fixtureArchiveSha256": "1fe29c24402ff3e44b46882705bfceb86035295f3f81cb715823dc6878b705af",
+    "removedDependencies": [
+      "wallet_application",
+      "network"
+    ],
+    "availableDependencies": [
+      "local_archive",
+      "node_crypto",
+      "arkive_recover",
+      "test_credential"
+    ],
+    "expectedOutcome": "RECOVERY_SUCCESS",
+    "expectedPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "actualOutcome": "RECOVERY_SUCCESS",
+    "errorClassification": null,
+    "recoveredPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "exactByteMatch": true,
+    "externalEndpointsContacted": [],
+    "durationMs": 147,
+    "result": "PASS"
+  },
+  {
+    "experiment": "E07",
+    "description": "Browser and local application state unavailable",
+    "timestamp": "2026-09-23T16:00:12.500Z",
+    "gitCommit": "aaa7b413fdc4fb373c03b835d4620f461e6d5a59",
+    "gitDirty": true,
+    "fixture": "research/fixtures/archives/passphrase-v1.arkive",
+    "fixtureArchiveSha256": "1fe29c24402ff3e44b46882705bfceb86035295f3f81cb715823dc6878b705af",
+    "removedDependencies": [
+      "local_storage",
+      "indexed_db",
+      "browser_cache",
+      "browser_session",
+      "network"
+    ],
+    "availableDependencies": [
+      "local_archive",
+      "node_crypto",
+      "arkive_recover",
+      "test_credential"
+    ],
+    "expectedOutcome": "RECOVERY_SUCCESS",
+    "expectedPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "actualOutcome": "RECOVERY_SUCCESS",
+    "errorClassification": null,
+    "recoveredPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "exactByteMatch": true,
+    "externalEndpointsContacted": [],
+    "durationMs": 144,
+    "result": "PASS"
+  },
+  {
+    "experiment": "E08",
+    "description": "Wrong recovery credential",
+    "timestamp": "2026-09-23T16:00:12.500Z",
+    "gitCommit": "aaa7b413fdc4fb373c03b835d4620f461e6d5a59",
+    "gitDirty": true,
+    "fixture": "research/fixtures/archives/passphrase-v1.arkive",
+    "fixtureArchiveSha256": "1fe29c24402ff3e44b46882705bfceb86035295f3f81cb715823dc6878b705af",
+    "removedDependencies": [
+      "correct_credential"
+    ],
+    "availableDependencies": [
+      "local_archive",
+      "node_crypto",
+      "arkive_recover",
+      "invalid_test_credential"
+    ],
+    "expectedOutcome": "RECOVERY_REJECTED",
+    "expectedPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "actualOutcome": "RECOVERY_REJECTED",
+    "errorClassification": "WRONG_CREDENTIAL_OR_CORRUPT_KEY_WRAP",
+    "recoveredPlaintextSha256": null,
+    "exactByteMatch": null,
+    "externalEndpointsContacted": [],
+    "durationMs": 134,
+    "result": "PASS"
+  },
+  {
+    "experiment": "E09",
+    "description": "Ciphertext corruption",
+    "timestamp": "2026-09-23T16:00:12.500Z",
+    "gitCommit": "aaa7b413fdc4fb373c03b835d4620f461e6d5a59",
+    "gitDirty": true,
+    "fixture": "research/fixtures/archives/passphrase-v1.arkive",
+    "fixtureArchiveSha256": "1fe29c24402ff3e44b46882705bfceb86035295f3f81cb715823dc6878b705af",
+    "removedDependencies": [],
+    "availableDependencies": [
+      "local_archive",
+      "node_crypto",
+      "arkive_recover",
+      "test_credential"
+    ],
+    "expectedOutcome": "RECOVERY_REJECTED",
+    "expectedPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "actualOutcome": "RECOVERY_REJECTED",
+    "errorClassification": "CONTENT_HASH_MISMATCH",
+    "recoveredPlaintextSha256": null,
+    "exactByteMatch": null,
+    "externalEndpointsContacted": [],
+    "durationMs": 47,
+    "result": "PASS"
+  },
+  {
+    "experiment": "E10",
+    "description": "Authenticated metadata corruption",
+    "timestamp": "2026-09-23T16:00:12.500Z",
+    "gitCommit": "aaa7b413fdc4fb373c03b835d4620f461e6d5a59",
+    "gitDirty": true,
+    "fixture": "research/fixtures/archives/passphrase-v1.arkive",
+    "fixtureArchiveSha256": "1fe29c24402ff3e44b46882705bfceb86035295f3f81cb715823dc6878b705af",
+    "removedDependencies": [],
+    "availableDependencies": [
+      "local_archive",
+      "node_crypto",
+      "arkive_recover",
+      "test_credential"
+    ],
+    "expectedOutcome": "RECOVERY_REJECTED",
+    "expectedPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "actualOutcome": "RECOVERY_REJECTED",
+    "errorClassification": "METADATA_AUTHENTICATION_FAILED",
+    "recoveredPlaintextSha256": null,
+    "exactByteMatch": null,
+    "externalEndpointsContacted": [],
+    "durationMs": 133,
+    "result": "PASS"
+  },
+  {
+    "experiment": "E11",
+    "stage": "E11-A",
+    "description": "Primary storage unavailable with an independent local replica",
+    "timestamp": "2026-09-23T16:00:14.467Z",
+    "gitCommit": "aaa7b413fdc4fb373c03b835d4620f461e6d5a59",
+    "gitDirty": true,
+    "fixture": "research/fixtures/archives/passphrase-v1.arkive",
+    "fixtureArchiveSha256": "1fe29c24402ff3e44b46882705bfceb86035295f3f81cb715823dc6878b705af",
+    "removedDependencies": [
+      "primary_storage_provider",
+      "network"
+    ],
+    "availableDependencies": [
+      "independent_local_replica",
+      "node_runtime",
+      "arkive_recover",
+      "test_credential"
+    ],
+    "expectedOutcome": "RECOVERY_SUCCESS_FROM_REPLICA",
+    "actualOutcome": "RECOVERY_SUCCESS",
+    "errorClassification": null,
+    "primaryStorageAvailable": false,
+    "replicaAvailable": true,
+    "accessedLocations": [
+      "independent-replica/archive.arkive",
+      "fresh-recovery-environment/archive-from-replica.arkive"
+    ],
+    "primaryArchiveSha256BeforeRemoval": "1fe29c24402ff3e44b46882705bfceb86035295f3f81cb715823dc6878b705af",
+    "replicaArchiveSha256": "1fe29c24402ff3e44b46882705bfceb86035295f3f81cb715823dc6878b705af",
+    "expectedPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "recoveredPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "exactByteMatch": true,
+    "externalEndpointsContacted": [],
+    "durationMs": 186,
+    "claimBoundary": "ARKIVE's encrypted archive object can be recovered from a storage location independent of its original storage path.",
+    "excludedClaim": "This does not validate cross-network blockchain permanence or E11-B.",
+    "result": "PASS"
+  },
+  {
+    "experiment": "E12",
+    "description": "Unsupported archive version",
+    "timestamp": "2026-09-23T16:00:12.500Z",
+    "gitCommit": "aaa7b413fdc4fb373c03b835d4620f461e6d5a59",
+    "gitDirty": true,
+    "fixture": "research/fixtures/archives/passphrase-v1.arkive",
+    "fixtureArchiveSha256": "1fe29c24402ff3e44b46882705bfceb86035295f3f81cb715823dc6878b705af",
+    "removedDependencies": [],
+    "availableDependencies": [
+      "local_archive",
+      "node_crypto",
+      "arkive_recover",
+      "test_credential"
+    ],
+    "expectedOutcome": "RECOVERY_REJECTED",
+    "expectedPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "actualOutcome": "RECOVERY_REJECTED",
+    "errorClassification": "UNSUPPORTED_BUNDLE_VERSION",
+    "recoveredPlaintextSha256": null,
+    "exactByteMatch": null,
+    "externalEndpointsContacted": [],
+    "durationMs": 43,
+    "result": "PASS"
+  },
+  {
+    "experiment": "E13",
+    "description": "Recovery Specification v1 sufficiency and cross-implementation conformance",
+    "timestamp": "2026-09-23T16:02:03.440Z",
+    "gitCommit": "aaa7b413fdc4fb373c03b835d4620f461e6d5a59",
+    "gitDirty": true,
+    "fixture": "research/fixtures/archives/passphrase-v1.arkive",
+    "fixtureArchiveSha256": "1fe29c24402ff3e44b46882705bfceb86035295f3f81cb715823dc6878b705af",
+    "removedDependencies": [
+      "undocumented_wire_format_assumptions"
+    ],
+    "availableDependencies": [
+      "clarified_recovery_spec_v1",
+      "published_conformance_vectors",
+      "node_implementation",
+      "python_implementation"
+    ],
+    "expectedOutcome": "SPECIFICATION_CONFORMANCE",
+    "actualOutcome": "RECOVERY_SUCCESS",
+    "errorClassification": null,
+    "expectedPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "recoveredPlaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+    "exactByteMatch": true,
+    "externalEndpointsContacted": [],
+    "durationMs": 1977,
+    "specificationConformance": "PASS",
+    "nodeConformance": {
+      "implementation": "Node WebCrypto + arkive-recover black box",
+      "deterministicVectors": "PASS",
+      "archiveRecovery": "PASS",
+      "negativeVectors": {
+        "wrongCredential": "WRONG_CREDENTIAL_OR_CORRUPT_KEY_WRAP",
+        "ciphertextCorruption": "CONTENT_HASH_MISMATCH",
+        "unsupportedVersion": "UNSUPPORTED_BUNDLE_VERSION"
+      },
+      "plaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+      "result": "PASS"
+    },
+    "pythonConformance": {
+      "implementation": "independent Python",
+      "deterministicVectors": "PASS",
+      "archiveRecovery": "PASS",
+      "negativeVectors": {
+        "wrongCredential": "WRONG_CREDENTIAL_OR_CORRUPT_KEY_WRAP",
+        "ciphertextCorruption": "CONTENT_HASH_MISMATCH",
+        "unsupportedVersion": "UNSUPPORTED_BUNDLE_VERSION"
+      },
+      "plaintextSha256": "8e5ed1e6474d39bf1594411085e7a50c15aabaa768e633ebf0960ce20e84e336",
+      "result": "PASS"
+    },
+    "independentSpecificationOnlyReimplementation": "NOT VALIDATED",
+    "limitation": "The Python implementation predates the clarified specification, so this run cannot establish that a fresh implementer could derive compatibility from the document alone.",
+    "result": "NOT VALIDATED"
+  }
+]
