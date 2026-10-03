@@ -60,14 +60,28 @@ test('2. malformed RID rejection', () => {
     'a'.repeat(42),
     'a'.repeat(44),
     '!!!@@@###$$$%%%^^^&&&***(((|||)))___+++',
-    null,
-    undefined,
   ]
   for (const rid of cases) {
     assert.throws(() => encodeOfflineRecoveryPackage(baseHeader(), ciphertext, rid), /INVALID_ARWEAVE_ID/)
     assert.throws(() => assertValidStorageRid(rid), /INVALID_ARWEAVE_ID/)
   }
+  for (const rid of [null, undefined]) {
+    assert.throws(() => assertValidStorageRid(rid), /INVALID_ARWEAVE_ID/)
+  }
   assert.throws(() => buildStorageLocations({ arweaveId: 'not-valid' }), /INVALID_ARWEAVE_ID/)
+})
+
+test('local fixture can omit arweaveId in encodeOfflineRecoveryPackage', () => {
+  const ciphertext = new Uint8Array(16).fill(1)
+  const pkgNull = encodeOfflineRecoveryPackage(baseHeader(), ciphertext, null)
+  const parsedNull = parseVaultBytes(pkgNull)
+  assert.equal(parsedNull.archiveId, null)
+  assert.deepEqual(parsedNull.storageLocations, [])
+
+  const pkgUndef = encodeOfflineRecoveryPackage(baseHeader(), ciphertext)
+  const parsedUndef = parseVaultBytes(pkgUndef)
+  assert.equal(parsedUndef.archiveId, null)
+  assert.deepEqual(parsedUndef.storageLocations, [])
 })
 
 test('3. upload success + registration success', async () => {

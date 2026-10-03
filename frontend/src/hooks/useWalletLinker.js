@@ -1,6 +1,6 @@
 import { requireSuccessfulReceipt } from '../lib/transactionReceipt'
 import { useState } from 'react'
-import { useAccount, useWriteContract, useReadContract } from 'wagmi'
+import { useAccount, useWriteContract, useReadContract, useChainId } from 'wagmi'
 import { waitForTransactionReceipt } from '@wagmi/core'
 import { wagmiConfig } from '../config/wagmi'
 import { CONTRACT_ADDRESSES } from '../config/contracts'
@@ -10,7 +10,9 @@ import { isValidEthAddress } from '../lib/security'
 const ZERO = '0x0000000000000000000000000000000000000000'
 
 export function useWalletLinker() {
-  const { address, connector, chainId } = useAccount()
+  const { address, connector, chainId: accountChainId } = useAccount()
+  const activeChainId = useChainId()
+  const chainId = accountChainId ?? activeChainId
   const { writeContractAsync } = useWriteContract()
   const [loading, setLoading] = useState(false)
 

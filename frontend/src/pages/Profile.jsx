@@ -11,6 +11,7 @@ import UserRegistryABI from '../contracts/UserRegistry.json'
 import PointsSystemABI from '../contracts/PointsSystem.json'
 import { usePoints } from '../hooks/usePoints'
 import PageHeader from '../components/PageHeader'
+import MultiWalletManager from '../components/MultiWalletManager'
 import toast from 'react-hot-toast'
 
 const DEMO_PROFILE = {
@@ -116,22 +117,7 @@ export default function Profile() {
       />
 
       <div className="settings-grid">
-        <div className="panel settings-wallet p-5">
-          <p className="text-faint text-xs mb-2 uppercase tracking-wider">Wallet</p>
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-sm text-ink">
-              {address ? `${address.slice(0, 6)}…${address.slice(-4)}` : '—'}
-            </span>
-            <button
-              type="button"
-              onClick={copyAddress}
-              disabled={!address}
-              className="p-2 rounded-lg text-faint hover:text-ink transition-colors disabled:opacity-40"
-            >
-              {copied ? <Check size={16} /> : <Copy size={16} />}
-            </button>
-          </div>
-        </div>
+        <MultiWalletManager currentAddress={address} />
 
           {!isRegistered ? (
             <div className="panel settings-identity p-6">

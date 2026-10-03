@@ -5,9 +5,11 @@ import { aesDecrypt, decryptVaultMetadata, sha256Hex, importRawKey, unwrapFileKe
 export async function decryptVaultContent(fileAesKey, payload) {
   const encrypted = payload.encryptedFileBytes instanceof Uint8Array
     ? payload.encryptedFileBytes : base64ToBytes(payload.encryptedFile)
+  if (payload.contentHash && !/^[a-z0-9]{64}$/.test(payload.contentHash)) throw new Error('INVALID_CONTENT_HASH')
   if (payload.contentHash && await sha256Hex(encrypted) !== payload.contentHash) throw new Error('CONTENT_HASH_MISMATCH')
   const decryptedBytes = new Uint8Array(await aesDecrypt(fileAesKey, encrypted, base64ToBytes(payload.encryptedFileIv)))
   const meta = await decryptVaultMetadata(fileAesKey, payload)
+  if (meta?.originalContentHash && !/^[a-z0-9]{64}$/.test(meta.originalContentHash)) throw new Error('INVALID_ORIGINAL_CONTENT_HASH')
   if (meta?.originalContentHash && await sha256Hex(decryptedBytes) !== meta.originalContentHash) throw new Error('ORIGINAL_HASH_MISMATCH')
   const fileName = meta?.originalFileName || payload.originalFileName
   const fileType = meta?.originalFileType || payload.originalFileType

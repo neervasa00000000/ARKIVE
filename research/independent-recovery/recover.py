@@ -18,7 +18,7 @@ MAGIC = b"ARKV"
 BUNDLE_VERSION = 3
 SCHEMA = "ARKIVE_VAULT_BUNDLE_V3"
 SPEC_VERSION = "1"
-MAX_HEADER_BYTES = 1024 * 1024
+MAX_HEADER_BYTES = 64 * 1024
 
 
 class RecoveryError(Exception):
@@ -57,14 +57,25 @@ def parse_archive(raw: bytes) -> tuple[dict, bytes]:
 
 def decrypt_archive(raw: bytes, passphrase: str) -> tuple[bytes, dict]:
     header, ciphertext = parse_archive(raw)
-    if hashlib.sha256(ciphertext).hexdigest() != header.get("contentHash"):
+    content_hash = header.get("contentHash")
+    if (
+        not isinstance(content_hash, str)
+        or len(content_hash) != 64
+        or not all(c in "0123456789abcdef" for c in content_hash)
+        or hashlib.sha256(ciphertext).hexdigest() != content_hash
+    ):
         raise RecoveryError("CONTENT_HASH_MISMATCH")
 
     wrap = header.get("recoveryWrap")
     if not isinstance(wrap, dict) or wrap.get("method") != "passphrase-v1":
         raise RecoveryError("PASSPHRASE_WRAP_UNAVAILABLE")
     iterations = wrap.get("iterations")
-    if not isinstance(iterations, int) or iterations <= 0:
+    if (
+        not isinstance(iterations, int)
+        or isinstance(iterations, bool)
+        or iterations < 100_000
+        or iterations > 1_000_000
+    ):
         raise RecoveryError("INVALID_KDF_ITERATIONS")
 
     wrapping_key = hashlib.pbkdf2_hmac(
@@ -104,6 +115,16 @@ def decrypt_archive(raw: bytes, passphrase: str) -> tuple[bytes, dict]:
     expected_size = metadata.get("originalFileSize")
     if isinstance(expected_size, int) and expected_size != len(plaintext):
         raise RecoveryError("PLAINTEXT_SIZE_MISMATCH")
+    expected_hash = metadata.get("originalContentHash")
+    if expected_hash is not None:
+        if (
+            not isinstance(expected_hash, str)
+            or len(expected_hash) != 64
+            or not all(c in "0123456789abcdef" for c in expected_hash)
+        ):
+            raise RecoveryError("INVALID_ORIGINAL_CONTENT_HASH")
+        if hashlib.sha256(plaintext).hexdigest() != expected_hash:
+            raise RecoveryError("ORIGINAL_HASH_MISMATCH")
     return plaintext, metadata
 
 
@@ -124,8 +145,6 @@ def main() -> int:
     args = parser.parse_args()
     try:
         passphrase = args.passphrase_file.read_text(encoding="utf-8")
-        if passphrase.endswith("\n"):
-            passphrase = passphrase[:-1]
         plaintext, metadata = decrypt_archive(args.archive.read_bytes(), passphrase)
         args.output.mkdir(parents=True, exist_ok=True)
         output_path = args.output / safe_name(metadata)

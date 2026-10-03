@@ -84,6 +84,44 @@ test('unsupported bundle and recovery specification versions fail closed', async
   await assert.rejects(testPassphraseRecovery({ ...payload, recoverySpecVersion: '2' }, PASSPHRASE), /UNSUPPORTED_RECOVERY_SPEC/)
 })
 
+test('iteration count out of range fails closed', async () => {
+  const { payload } = await fixture()
+  const low = { ...payload, recoveryWrap: { ...payload.recoveryWrap, iterations: 99_999 } }
+  await assert.rejects(testPassphraseRecovery(low, PASSPHRASE), /INVALID_RECOVERY_PARAMETERS/)
+
+  const high = { ...payload, recoveryWrap: { ...payload.recoveryWrap, iterations: 1_000_001 } }
+  await assert.rejects(testPassphraseRecovery(high, PASSPHRASE), /INVALID_RECOVERY_PARAMETERS/)
+})
+
+test('bad schema fails closed', async () => {
+  const { payload } = await fixture()
+  await assert.rejects(testPassphraseRecovery({ ...payload, schema: 'INVALID_SCHEMA' }, PASSPHRASE), /UNSUPPORTED_SCHEMA/)
+})
+
+test('uppercase hash fails closed', async () => {
+  const { payload } = await fixture()
+  const upperContentHash = { ...payload, contentHash: payload.contentHash.toUpperCase() }
+  await assert.rejects(testPassphraseRecovery(upperContentHash, PASSPHRASE), /INVALID_CONTENT_HASH/)
+
+  const { payload: upperMetaPayload } = await fixture({
+    originalHash: (await sha256Hex(new TextEncoder().encode('exact recovery bytes\n'))).toUpperCase(),
+  })
+  await assert.rejects(testPassphraseRecovery(upperMetaPayload, PASSPHRASE), /INVALID_ORIGINAL_CONTENT_HASH/)
+})
+
+test('ciphertext whose hash was recomputed to match fails closed on authentication', async () => {
+  const { payload } = await fixture()
+  const tamperedCiphertext = new Uint8Array(payload.encryptedFileBytes)
+  tamperedCiphertext[0] ^= 1
+  const recomputedHash = await sha256Hex(tamperedCiphertext)
+  const tamperedPayload = {
+    ...payload,
+    encryptedFileBytes: tamperedCiphertext,
+    contentHash: recomputedHash,
+  }
+  await assert.rejects(testPassphraseRecovery(tamperedPayload, PASSPHRASE))
+})
+
 test('recovery self-test does not mutate archive bytes', async () => {
   const { bundle, payload } = await fixture()
   const before = bundle.slice()

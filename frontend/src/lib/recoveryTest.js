@@ -7,8 +7,11 @@ export const RECOVERY_TEST_EVENT = 'arkive:recovery-test-updated'
 
 export function assertRecoveryTestCompatible(payload) {
   if (!payload || typeof payload !== 'object') throw new Error('RECOVERY_UNAVAILABLE')
-  if (payload.bundleVersion !== VAULT_BUNDLE_VERSION || payload.schema !== VAULT_SCHEMA_V3) {
+  if (payload.bundleVersion !== VAULT_BUNDLE_VERSION) {
     throw new Error('UNSUPPORTED_BUNDLE_VERSION')
+  }
+  if (payload.schema !== VAULT_SCHEMA_V3) {
+    throw new Error('UNSUPPORTED_SCHEMA')
   }
   if (payload.recoverySpecVersion !== '1') throw new Error('UNSUPPORTED_RECOVERY_SPEC')
   return payload
@@ -32,7 +35,7 @@ export function availableRecoveryMethods(payload, connectedAddress = null) {
 export async function verifyExactRecovery(payload, decrypted) {
   assertRecoveryTestCompatible(payload)
   const expected = decrypted?.meta?.originalContentHash
-  if (!/^[a-f0-9]{64}$/i.test(expected || '')) throw new Error('ORIGINAL_HASH_UNAVAILABLE')
+  if (!/^[a-z0-9]{64}$/.test(expected || '')) throw new Error('ORIGINAL_HASH_UNAVAILABLE')
   const actual = await sha256Hex(decrypted.decryptedBytes)
   if (actual !== expected) throw new Error('ORIGINAL_HASH_MISMATCH')
   return true
@@ -105,6 +108,7 @@ export function clearRecoveryTestRecords(storage = globalThis.localStorage) {
 export function recoveryFailureCategory(error) {
   const message = error?.message || ''
   if (message.includes('UNSUPPORTED_BUNDLE')) return 'unsupported bundle version'
+  if (message.includes('UNSUPPORTED_SCHEMA')) return 'unsupported schema'
   if (message.includes('UNSUPPORTED_RECOVERY_SPEC')) return 'unsupported recovery specification'
   if (message.includes('NO_RECOVERY') || message.includes('RECOVERY_UNAVAILABLE')) return 'recovery unavailable'
   if (message.includes('CONTENT_HASH') || message.includes('ORIGINAL_HASH') || message.includes('INVALID_ENCRYPTED_DATA')) return 'archive integrity failure'

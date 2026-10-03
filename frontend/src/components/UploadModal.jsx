@@ -10,6 +10,7 @@ import {
   shouldWarnBeforeDiscardingRecoveryCustody,
   triggerRecoveryPackageDownload,
 } from '../lib/ridCustody'
+import { getConfiguredWallets, saveConfiguredWallets } from '../lib/multiWalletAccess'
 import { Modal, ModalHeader, ModalBody, ModalFooter } from './Modal'
 import { MetaMaskSignInlineNotice } from './SignExplainModal'
 import Dropzone, { DropzoneIcon } from './Dropzone'
@@ -120,6 +121,17 @@ export default function UploadModal({ onClose, onSuccess }) {
   }, [backup2])
 
   useEffect(() => {
+    if (!address) return
+    const configured = getConfiguredWallets(address)
+    if (configured.length > 0) {
+      setBackup1((prev) => prev || configured[0] || '')
+      if (configured.length > 1) {
+        setBackup2((prev) => prev || configured[1] || '')
+      }
+    }
+  }, [address])
+
+  useEffect(() => {
     if (!needsRecoveryCustodyWarn) return undefined
     const onBeforeUnload = (event) => {
       // UX protection only — browsers do not guarantee this preserves the artifact.
@@ -189,6 +201,9 @@ export default function UploadModal({ onClose, onSuccess }) {
         opts.recoveryPassphrase = recoveryPassphrase
       }
       const stored = await storeFile(file, opts)
+      if (opts.backupAddresses.length > 0 && address) {
+        saveConfiguredWallets(address, opts.backupAddresses)
+      }
 
       const registrationOk = stored.registrationSucceeded !== false
       if (registrationOk) {

@@ -59,10 +59,11 @@ export function withRecoverySpecFields(header, { arweaveId = null } = {}) {
  * Offline recovery package (.arkive) — same bundle format, header stamped with archiveId
  * so a hard-drive copy remains recoverable without Base.
  *
- * INVARIANT: a valid storage RID is required. Malformed/empty RIDs are rejected.
+ * Local fixtures may omit arweaveId (null or undefined). When an arweaveId is provided,
+ * a valid storage RID is required; malformed/empty RIDs are rejected.
  */
-export function encodeOfflineRecoveryPackage(header, encryptedFileBytes, arweaveId) {
-  const rid = assertValidStorageRid(arweaveId)
+export function encodeOfflineRecoveryPackage(header, encryptedFileBytes, arweaveId = null) {
+  const rid = arweaveId != null ? assertValidStorageRid(arweaveId) : null
   const stamped = withRecoverySpecFields(header, { arweaveId: rid })
   if (!stamped.schema) stamped.schema = VAULT_SCHEMA_V3
   return encodeVaultBundle(stamped, encryptedFileBytes)

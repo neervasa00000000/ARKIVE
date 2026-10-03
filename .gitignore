@@ -31,3 +31,8 @@ research/results/20*/
 
 # Local Netlify folder
 .netlify
+
+# Local audit and organization artifacts
+*AUDIT*
+PUBLIC-*
+.githooks/

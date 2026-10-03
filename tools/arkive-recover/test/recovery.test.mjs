@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { inspectArchive, parseArchive, recoverWithPassphrase } from '../core.mjs'
+import { inspectArchive, parseArchive, recoverWithPassphrase, sha256Hex } from '../core.mjs'
 
 const ROOT = resolve(import.meta.dirname, '../../..')
 const ARCHIVE = resolve(ROOT, 'research/fixtures/archives/passphrase-v1.arkive')
@@ -77,4 +77,75 @@ test('unsupported archive version is rejected explicitly', async () => {
   const unsupported = Buffer.from(archive)
   unsupported[4] = 4
   assert.throws(() => parseArchive(unsupported), { code: 'UNSUPPORTED_BUNDLE_VERSION' })
+})
+
+test('bad schema fails closed', async () => {
+  const { archive } = await fixture()
+  const parsed = parseArchive(archive)
+  const header = structuredClone(parsed.header)
+  header.schema = 'INVALID_SCHEMA'
+  const headerBytes = Buffer.from(JSON.stringify(header))
+  const modified = Buffer.alloc(9 + headerBytes.length + parsed.ciphertext.length)
+  modified.write('ARKV', 0)
+  modified[4] = 3
+  modified.writeUInt32BE(headerBytes.length, 5)
+  headerBytes.copy(modified, 9)
+  parsed.ciphertext.copy(modified, 9 + headerBytes.length)
+  assert.throws(() => parseArchive(modified), { code: 'UNSUPPORTED_ARCHIVE_SCHEMA' })
+})
+
+test('iteration count out of range fails closed', async () => {
+  const { archive, passphrase } = await fixture()
+  const parsed = parseArchive(archive)
+
+  for (const iterations of [99_999, 1_000_001]) {
+    const header = structuredClone(parsed.header)
+    header.recoveryWrap.iterations = iterations
+    const headerBytes = Buffer.from(JSON.stringify(header))
+    const modified = Buffer.alloc(9 + headerBytes.length + parsed.ciphertext.length)
+    modified.write('ARKV', 0)
+    modified[4] = 3
+    modified.writeUInt32BE(headerBytes.length, 5)
+    headerBytes.copy(modified, 9)
+    parsed.ciphertext.copy(modified, 9 + headerBytes.length)
+    await assert.rejects(recoverWithPassphrase(modified, passphrase), {
+      code: 'INVALID_RECOVERY_PARAMETERS',
+    })
+  }
+})
+
+test('uppercase hash fails closed', async () => {
+  const { archive } = await fixture()
+  const parsed = parseArchive(archive)
+  const header = structuredClone(parsed.header)
+  header.contentHash = header.contentHash.toUpperCase()
+  const headerBytes = Buffer.from(JSON.stringify(header))
+  const modified = Buffer.alloc(9 + headerBytes.length + parsed.ciphertext.length)
+  modified.write('ARKV', 0)
+  modified[4] = 3
+  modified.writeUInt32BE(headerBytes.length, 5)
+  headerBytes.copy(modified, 9)
+  parsed.ciphertext.copy(modified, 9 + headerBytes.length)
+  assert.throws(() => parseArchive(modified), { code: 'INVALID_CONTENT_HASH' })
+})
+
+test('ciphertext whose hash was recomputed to match fails closed on authentication', async () => {
+  const { archive, passphrase } = await fixture()
+  const parsed = parseArchive(archive)
+  const tamperedCiphertext = Buffer.from(parsed.ciphertext)
+  tamperedCiphertext[0] ^= 1
+  const recomputedHash = sha256Hex(tamperedCiphertext)
+  const header = structuredClone(parsed.header)
+  header.contentHash = recomputedHash
+  const headerBytes = Buffer.from(JSON.stringify(header))
+  const modified = Buffer.alloc(9 + headerBytes.length + tamperedCiphertext.length)
+  modified.write('ARKV', 0)
+  modified[4] = 3
+  modified.writeUInt32BE(headerBytes.length, 5)
+  headerBytes.copy(modified, 9)
+  tamperedCiphertext.copy(modified, 9 + headerBytes.length)
+
+  await assert.rejects(recoverWithPassphrase(modified, passphrase), {
+    code: 'CONTENT_AUTHENTICATION_FAILED',
+  })
 })

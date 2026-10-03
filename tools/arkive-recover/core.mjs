@@ -39,7 +39,7 @@ function decodeBase64(value, field) {
 }
 
 function assertHexSha256(value, code) {
-  if (typeof value !== 'string' || !/^[a-f0-9]{64}$/i.test(value)) fail(code)
+  if (typeof value !== 'string' || !/^[a-z0-9]{64}$/.test(value)) fail(code)
 }
 
 export function parseArchive(bytes) {
@@ -75,9 +75,9 @@ export function parseArchive(bytes) {
     headerLength,
     headerEnd,
     ciphertext,
-    ciphertextHashExpected: header.contentHash.toLowerCase(),
+    ciphertextHashExpected: header.contentHash,
     ciphertextHashActual: actualCiphertextHash,
-    ciphertextHashMatched: actualCiphertextHash === header.contentHash.toLowerCase(),
+    ciphertextHashMatched: actualCiphertextHash === header.contentHash,
   }
 }
 
@@ -188,14 +188,14 @@ export async function recoverWithPassphrase(bytes, passphrase) {
     }
     assertHexSha256(metadata.originalContentHash, 'INVALID_ORIGINAL_CONTENT_HASH')
     const recoveredSha256 = sha256Hex(plaintext)
-    if (recoveredSha256 !== metadata.originalContentHash.toLowerCase()) {
+    if (recoveredSha256 !== metadata.originalContentHash) {
       fail('ORIGINAL_HASH_MISMATCH')
     }
     return {
       plaintext,
       fileName: safeOutputName(metadata.originalFileName),
       fileType: typeof metadata.originalFileType === 'string' ? metadata.originalFileType : '',
-      expectedSha256: metadata.originalContentHash.toLowerCase(),
+      expectedSha256: metadata.originalContentHash,
       recoveredSha256,
       exactByteMatch: true,
       bundleVersion: parsed.bundleVersion,

@@ -100,6 +100,8 @@ The wallet signature is **never** used as the raw file AES key.
 2. `K_wrap = keccak256(signature)` interpreted as 32-byte AES key  
 3. Encrypt `K_file` with AES-256-GCM under `K_wrap` → store in `keyWraps[]`
 
+The wallet signature is a **long-term wrap secret** for that address. It is **not stored** anywhere in the archive, registry, or off-chain database. The typed data is **not bound to a website** (there is no web origin, domain name, or website URL in the EIP-712 domain or message), ensuring recovery tools can reproduce the signature independently in any offline or air-gapped environment.
+
 Each wrap object:
 
 ```json
@@ -124,7 +126,7 @@ Stored as `recoveryWrap`:
 | Salt | 16 random bytes |
 | Then | AES-256-GCM wrap of `K_file` |
 
-The passphrase JavaScript string is converted directly with the Web Encoding API `TextEncoder`, producing UTF-8 bytes. Writers and readers MUST NOT trim whitespace, change case, append a terminator, or apply Unicode normalization. Consequently canonically equivalent strings such as precomposed `é` and `e` followed by U+0301 derive different keys. Non-BMP characters use their normal UTF-8 encoding. Web `TextEncoder` replaces unpaired UTF-16 surrogates with U+FFFD before UTF-8 encoding; interoperable tools SHOULD follow the Encoding Standard for such input.
+The passphrase JavaScript string is converted directly with the Web Encoding API `TextEncoder`, producing UTF-8 bytes. Writers and readers MUST NOT trim whitespace, change case, append a terminator, or apply Unicode normalization. Recovery commands (including `--passphrase-file`) MUST NOT strip trailing newlines or whitespace; passphrases are preserved verbatim. Consequently canonically equivalent strings such as precomposed `é` and `e` followed by U+0301 derive different keys. Non-BMP characters use their normal UTF-8 encoding. Web `TextEncoder` replaces unpaired UTF-16 surrogates with U+FFFD before UTF-8 encoding; interoperable tools SHOULD follow the Encoding Standard for such input.
 
 Production sealing accepts a non-empty passphrase only when its ECMAScript string length is at least 8 UTF-16 code units. It preserves every accepted code unit. Recovery accepts a string of at most 1,024 UTF-16 code units; empty input is permitted by the low-level reader but cannot unlock an archive produced by the production sealing path. Passphrases are case-sensitive.
 
@@ -142,7 +144,17 @@ For PBKDF2, password bytes are the UTF-8 bytes above, salt is the decoded 16-byt
 
 Compatible with Ethereum/Base wallets today. Future tools must accept a raw secp256k1 private key / BIP-39 seed — **not** a proprietary MetaMask API.
 
-Addresses in headers are `0x` followed by exactly 40 hexadecimal characters. Production compares addresses after ASCII lowercasing and writes lowercase addresses; checksum case carries no recovery meaning. Signature hex is decoded to its raw 65 bytes, then Keccak-256 is applied to those bytes. The resulting 32 bytes are the AES-256-GCM wrapping key. It is not the SHA3-256 variant.
+Addresses in headers are `0x` followed by exactly 40 hexadecimal characters. Production compares addresses after ASCII lowercasing and writes lowercase addresses; checksum case carries no recovery meaning.
+
+### Exact signature representation
+
+The derived key wrap secret requires the **exact 65-byte signature** (`r || s || v`: 32 bytes `r`, 32 bytes `s`, 1 byte `v`), with **no low-s rewrite and no v rewrite**.
+- `v` MUST NOT be rewritten or normalized between 27/28 and 0/1.
+- `s` MUST NOT be rewritten to canonical low-s.
+- Signature hex is decoded to its exact raw 65 bytes, then Keccak-256 is applied: `K_wrap = keccak256(signatureBytes)`.
+- It is not the SHA3-256 variant.
+
+Because Keccak-256 is byte-representation-dependent, any alternate signature encoding (such as `v = 0/1` instead of `27/28` or non-identical `s`) produces a different `K_wrap` and fails decryption. Alternate signature encodings MUST NOT be scored as a pass; they represent a detected dependency on exact signature encoding.
 
 ---
 
@@ -228,6 +240,19 @@ Current writers construct a metadata object with fields `originalContentHash`, `
 
 Metadata is encrypted under `K_file` using a fresh 12-byte IV, no AAD, and the same `C || 16-byte tag` representation described in §2. `encryptedMetadata` and `encryptedMetadataIv` are canonical standard Base64 strings. After successful GCM authentication, readers decode with Web `TextDecoder` semantics and parse JSON. Current production accepts whatever JSON value `JSON.parse` returns; conforming writers MUST write an object and recovery tools SHOULD reject non-object metadata. Invalid JSON or failed GCM authentication MUST fail closed. `originalFileName` and MIME type are advisory and MUST NOT be executed or used as an unsanitized filesystem path. Writers emit `originalFileSize` as a non-negative JSON integer. Recovery tools SHOULD compare it with plaintext length. `originalContentHash`, when present, is the lowercase SHA-256 hex digest of original plaintext bytes and MUST be verified.
 
+### 7.2 Public versus encrypted fields
+
+| Field / Information | Visibility | Location | Description / Security Rationale |
+|---------------------|------------|----------|----------------------------------|
+| File size (`originalFileSize`) | **In the clear** (public) | Bundle header | Non-sensitive coarse size hint for resource allocation |
+| Wallet addresses (`authorizedWallets`, `encryptedByWallet`, `keyWraps[].wallet`) | **In the clear** (public) | Bundle header | Needed to select the matching key wrap for an authorized address |
+| Passphrase wrap existence | **In the clear** (public) | Bundle header (`recoveryWrap` present or null) | Signals whether a passphrase wrap exists for recovery |
+| Ciphertext hash (`contentHash`) | **In the clear** (public) | Bundle header | Unauthenticated SHA-256 checksum over ciphertext bytes |
+| Plaintext hash (`originalContentHash`) | **Encrypted** | `encryptedMetadata` (AES-256-GCM) | Plaintext hash stays inside encrypted metadata; hidden from observers |
+| Real filename & MIME type | **Encrypted** | `encryptedMetadata` (AES-256-GCM) | Real filename and MIME type stay inside encrypted metadata |
+| File AES key (`K_file`) | **Encrypted** | `keyWraps[]` / `recoveryWrap` | Encrypted under `K_wrap`; never exposed in the clear |
+| Storage pointers (`archiveId`, `storageLocations`) | **In the clear** (public) | Bundle header / offline stamp | Untrusted discovery pointers |
+
 ---
 
 ## 8. Storage pointers
@@ -303,6 +328,8 @@ Base smart contracts MAY index:
 - Owner address  
 
 They MUST NOT be treated as the only place wraps or ciphertext live. A chain can die; recovery must still work from storage + manifest + key.
+
+**Do not put a required hash on Base:** Base smart contracts do not require, store, or verify a file content hash or plaintext hash. Do not put a required hash on Base. Plaintext hashes MUST stay inside the encrypted metadata and MUST NOT be published to Base. Content hashes are unauthenticated checksums checked from the bundle header during recovery, not from Base. An on-chain hash is not required and must not be made a requirement on Base for recovery.
 
 ---
 

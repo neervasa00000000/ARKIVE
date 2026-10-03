@@ -29,7 +29,7 @@ function parseArgs(argv) {
 }
 
 async function passphraseFrom(options) {
-  if (options.passphraseFile) return (await readFile(resolve(options.passphraseFile), 'utf8')).replace(/\r?\n$/, '')
+  if (options.passphraseFile) return await readFile(resolve(options.passphraseFile), 'utf8')
   if (process.env.ARKIVE_RECOVERY_PASSPHRASE) return process.env.ARKIVE_RECOVERY_PASSPHRASE
   throw new Error('Passphrase required via --passphrase-file or ARKIVE_RECOVERY_PASSPHRASE')
 }
