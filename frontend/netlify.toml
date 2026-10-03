@@ -8,6 +8,7 @@
 
 [build.environment]
   NODE_OPTIONS = "--experimental-require-module"
+  VITE_DEMO_MODE = "false"
 
 [[redirects]]
   from = "/api/turbo/health"
