@@ -1,4 +1,8 @@
+import { useEffect } from 'react'
+
 export default function PageHeader({ title, description, eyebrow, action }) {
+  useEffect(() => { document.title = `${title} · ARKIVE` }, [title])
+
   return (
     <header className="page-head flex flex-col sm:flex-row sm:items-end justify-between gap-4">
       <div>

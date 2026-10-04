@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Lock, Download, FileText } from 'lucide-react'
 import { isDemoMode } from '../config/demo'
-import { simulateUnlockProgress } from '../demo/demoVault'
 import { useVault } from '../hooks/useVault'
 import { vaultErrorMessage } from '../lib/setupStatus'
 import { Modal, ModalHeader, ModalBody } from './Modal'
@@ -16,10 +15,6 @@ export default function UnlockModal({ record, onClose, onOpened }) {
     setPhase('signing')
 
     if (isDemoMode) {
-      await simulateUnlockProgress(() => {})
-      await delay(800)
-      setPhase('opening')
-      await delay(1000)
       setDecrypted({
         fileName: record.fileName,
         url: null,
@@ -49,8 +44,17 @@ export default function UnlockModal({ record, onClose, onOpened }) {
 
   function handleDownload() {
     if (isDemoMode) {
+      if (record._file) {
+        const url = URL.createObjectURL(record._file)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = record.fileName
+        a.click()
+        URL.revokeObjectURL(url)
+        return
+      }
       const blob = new Blob(
-        [`ARKIVE Demo — ${record.fileName}\n\nThis is a simulated retrieval. In production, your decrypted file would download here.`],
+        [`ARKIVE demo example — ${record.fileName}\n\nThis is a sample record. No real file was encrypted or uploaded.`],
         { type: 'text/plain' },
       )
       const url = URL.createObjectURL(blob)
@@ -75,16 +79,16 @@ export default function UnlockModal({ record, onClose, onOpened }) {
   }
 
   const subtitles = {
-    locked: 'Your wallet proves ownership. Decryption stays on your device.',
+    locked: isDemoMode ? 'Preview this sample record. No wallet signature or decryption occurs.' : 'Your wallet proves ownership. Decryption stays on your device.',
     signing: 'Confirm in MetaMask…',
     opening: 'Decrypting…',
-    unlocked: record.fileName,
+    unlocked: isDemoMode ? `${record.fileName} · demo preview` : record.fileName,
   }
 
   return (
     <Modal onClose={handleClose}>
       <ModalHeader
-        title={phase === 'unlocked' ? 'Unlocked' : 'Retrieve record'}
+        title={isDemoMode ? (phase === 'unlocked' ? 'Demo record ready' : 'Preview record') : (phase === 'unlocked' ? 'Unlocked' : 'Retrieve record')}
         description={subtitles[phase]}
         onClose={handleClose}
         icon={Lock}
@@ -103,7 +107,7 @@ export default function UnlockModal({ record, onClose, onOpened }) {
               className="btn-primary w-full py-3 disabled:opacity-50"
             >
               <Lock size={16} />
-              Sign to unlock
+              {isDemoMode ? 'Preview record' : 'Sign to unlock'}
             </button>
           </div>
         )}
@@ -134,10 +138,10 @@ export default function UnlockModal({ record, onClose, onOpened }) {
             </div>
             <button type="button" onClick={handleDownload} className="btn-primary w-full py-3">
               <Download size={16} />
-              Download
+              {isDemoMode && !record._file ? 'Download sample note' : 'Download'}
             </button>
             <p className="font-mono text-[10px] text-text-muted leading-relaxed px-2">
-              Permanent on Arweave — that is the point.
+              {isDemoMode ? 'Demo preview only. No file was encrypted or uploaded.' : 'Testnet storage. Keep an independent backup.'}
             </p>
           </div>
         )}

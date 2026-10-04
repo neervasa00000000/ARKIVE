@@ -10,10 +10,18 @@ export default function Dropzone({
 }) {
   return (
     <div
+      role="button"
+      tabIndex={0}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onClick?.(event)
+        }
+      }}
       className={`dropzone ${dragging ? 'dropzone-active' : ''} ${filled ? 'dropzone-filled' : ''} ${className}`}
     >
       {children}

@@ -11,7 +11,7 @@ export function SidebarNav({ onNavigate }) {
   const location = useLocation()
 
   return (
-    <nav aria-label="Primary" className="flex flex-col gap-1">
+    <nav aria-label="Primary" className="workspace-nav">
       {links.map(({ path, label, icon: Icon }) => {
         const active = location.pathname === path
         return (

@@ -8,5 +8,5 @@ const demoEnv = import.meta.env.VITE_DEMO_MODE
 export const isDemoMode =
   demoEnv === 'true' || (demoEnv !== 'false' && !contractsDeployed)
 
-export const DEMO_ADDRESS = '0x7a3f8b2e1c4d9a6f5e8b3c2d1a4f6e8c2d'
+export const DEMO_ADDRESS = '0x7a3f8b2e1c4d9a6f5e8b3c2d1a4f6e1234568c2d'
 export const DEMO_ADDRESS_SHORT = '0x7a3f...8c2d'

@@ -121,9 +121,10 @@ export default function Profile() {
 
           {!isRegistered ? (
             <div className="panel settings-identity p-6">
-              <p className="font-display text-sm font-semibold text-ink mb-4">Choose your username</p>
+              <label htmlFor="profile-username" className="block font-display text-sm font-semibold text-ink mb-4">Choose your username</label>
               <div className="flex gap-3">
                 <input
+                  id="profile-username"
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}

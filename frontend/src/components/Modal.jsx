@@ -1,31 +1,69 @@
-import { useEffect } from 'react'
+import { createContext, useContext, useEffect, useId, useRef } from 'react'
 import { X } from 'lucide-react'
 
+const ModalTitleContext = createContext(null)
+
 export function Modal({ children, onClose, size = 'max-w-lg', zIndex = 'z-50' }) {
+  const panelRef = useRef(null)
+  const closeRef = useRef(onClose)
+  const titleId = useId()
+  closeRef.current = onClose
+
   useEffect(() => {
     const prev = document.body.style.overflow
+    const previousFocus = document.activeElement
     document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
+    panelRef.current?.focus()
+    function onKeyDown(event) {
+      if (event.key !== 'Escape') return
+      const dialogs = document.querySelectorAll('[role="dialog"]')
+      if (dialogs[dialogs.length - 1] === panelRef.current) closeRef.current?.()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.body.style.overflow = prev
+      document.removeEventListener('keydown', onKeyDown)
+      previousFocus?.focus?.()
+    }
   }, [])
+
+  function trapFocus(event) {
+    if (event.key !== 'Tab') return
+    const focusable = [...panelRef.current.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+      .filter((item) => item.getClientRects().length > 0)
+    if (!focusable.length) { event.preventDefault(); return }
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
+      event.preventDefault(); last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault(); first.focus()
+    }
+  }
 
   return (
     <div
       className={`modal-overlay ${zIndex}`}
       onClick={onClose}
-      role="dialog"
-      aria-modal="true"
     >
       <div
+        ref={panelRef}
         className={`modal-panel ${size}`}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={trapFocus}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
       >
-        {children}
+        <ModalTitleContext.Provider value={titleId}>{children}</ModalTitleContext.Provider>
       </div>
     </div>
   )
 }
 
 export function ModalHeader({ title, description, onClose, icon: Icon }) {
+  const titleId = useContext(ModalTitleContext)
   return (
     <div className="modal-header">
       <div className="min-w-0 flex-1">
@@ -35,7 +73,7 @@ export function ModalHeader({ title, description, onClose, icon: Icon }) {
               <Icon size={18} className="text-muted" />
             </span>
           )}
-          <h2 className="font-display text-lg font-semibold text-ink truncate">
+          <h2 id={titleId} className="font-display text-lg font-semibold text-ink truncate">
             {title}
           </h2>
         </div>

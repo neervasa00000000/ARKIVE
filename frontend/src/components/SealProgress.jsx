@@ -2,13 +2,20 @@ const STEPS = [
   'Encrypting on your device',
   'Sealing to Arweave',
   'Writing to blockchain',
-  'Done. Permanent.',
+  'Storage submitted',
 ]
 
-export default function SealProgress({ currentStep }) {
+const DEMO_STEPS = [
+  'Reading file details',
+  'Preparing sample record',
+  'Adding to demo vault',
+  'Ready to explore',
+]
+
+export default function SealProgress({ currentStep, demo = false }) {
   return (
     <div className="space-y-3">
-      {STEPS.map((label, i) => {
+      {(demo ? DEMO_STEPS : STEPS).map((label, i) => {
         const done = i < currentStep
         const active = i === currentStep
         const pending = i > currentStep

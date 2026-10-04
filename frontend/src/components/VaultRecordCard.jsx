@@ -25,8 +25,8 @@ export default function VaultRecordCard({ record, onOpened, view = 'grid' }) {
             <h3 title={record.fileName}>{record.fileName}</h3>
             <p>Stored {formatSealedDate(record.sealedAt)} · Opened {formatLastOpened(record.lastOpenedAt)}</p>
             <div className="record-proof-row">
-              <span className="record-proof"><span className="proof-dot" />Encrypted</span>
-              <span className="record-chain">AR {proofId}</span>
+              <span className="record-proof"><span className="proof-dot" />Demo record</span>
+              <span className="record-chain">Sample AR {proofId}</span>
             </div>
           </div>
         </div>
@@ -35,7 +35,7 @@ export default function VaultRecordCard({ record, onOpened, view = 'grid' }) {
             Details <ArrowUpRight size={14} />
           </button>
           <button type="button" onClick={() => setShowUnlock(true)} className="btn-secondary btn-compact">
-            <Lock size={14} /> Open
+            <Lock size={14} /> Preview
           </button>
         </div>
       </article>

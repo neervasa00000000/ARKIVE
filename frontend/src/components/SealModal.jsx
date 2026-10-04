@@ -123,13 +123,13 @@ export default function SealModal({ onClose, onSuccess }) {
       {SignPromptModal}
       <Modal onClose={onClose}>
         <ModalHeader
-          title={phase === 'complete' ? 'Sealed' : 'Seal a record'}
+          title={isDemoMode ? (phase === 'complete' ? 'Added to demo vault' : 'Add a demo record') : (phase === 'complete' ? 'Sealed' : 'Seal a record')}
           description={
             phase === 'sealing'
-              ? 'Encrypting and writing to Arweave…'
+              ? (isDemoMode ? 'Preparing your local preview…' : 'Encrypting and writing to Arweave…')
               : phase === 'complete'
-                ? 'Testnet storage — keep an independent backup.'
-                : 'Encrypted on your device before it leaves your browser.'
+                ? (isDemoMode ? 'Preview only. Nothing was encrypted or uploaded.' : 'Testnet storage — keep an independent backup.')
+                : (isDemoMode ? 'Explore the flow with a local file. Nothing will be encrypted or uploaded.' : 'Encrypted on your device before it leaves your browser.')
           }
           onClose={onClose}
           icon={Lock}
@@ -161,9 +161,15 @@ export default function SealModal({ onClose, onSuccess }) {
               </Dropzone>
               <input ref={fileRef} type="file" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
 
-              <WalletUploadNotice context="vault" />
-              <VaultKeySignNotice />
-              <MetaMaskSignInlineNotice />
+              {isDemoMode ? (
+                <p className="notice-inline text-sm">Demo records stay in this browser session. No wallet signature, encryption, payment, or upload occurs.</p>
+              ) : (
+                <>
+                  <WalletUploadNotice context="vault" />
+                  <VaultKeySignNotice />
+                  <MetaMaskSignInlineNotice />
+                </>
+              )}
               {lastError && (
                 <p className="notice-inline text-red-400/90 text-xs break-words border-red-500/20 bg-red-500/5">
                   {lastError}
@@ -174,7 +180,7 @@ export default function SealModal({ onClose, onSuccess }) {
 
           {phase === 'sealing' && (
             <div className="py-2">
-              <SealProgress currentStep={sealStep} />
+              <SealProgress currentStep={sealStep} demo={isDemoMode} />
               {!isDemoMode && step && (
                 <p className="font-mono text-[11px] text-text-muted mt-4">{step}</p>
               )}
@@ -186,9 +192,9 @@ export default function SealModal({ onClose, onSuccess }) {
               <div className="dropzone-icon mx-auto mb-4 h-14 w-14">
                 <Lock size={26} />
               </div>
-              <p className="font-display text-lg font-semibold text-text-primary mb-1">Stored on testnet</p>
+              <p className="font-display text-lg font-semibold text-text-primary mb-1">{isDemoMode ? 'Added to your demo' : 'Stored on testnet'}</p>
               <p className="font-body text-text-secondary text-sm">Last opened: never</p>
-              {sealedRecord && (
+              {sealedRecord && !isDemoMode && (
                 <p className="font-mono text-[11px] text-text-muted mt-3 break-all px-2">
                   {sealedRecord.arweaveTxId}
                 </p>
@@ -208,7 +214,7 @@ export default function SealModal({ onClose, onSuccess }) {
                 className="btn-primary btn-primary-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Lock size={16} />
-                Seal record
+                {isDemoMode ? 'Add to demo vault' : 'Seal record'}
               </button>
             </>
           )}

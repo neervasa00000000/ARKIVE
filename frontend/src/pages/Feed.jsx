@@ -63,9 +63,9 @@ function FeedContent({ posts, contractsReady, onPost, onLike, onOpenCreate }) {
             ))}
           </div>
           <aside className="community-rail" aria-label="Community network information">
-            <div className="community-rail-head"><Radio size={16} /><span><strong>Public signal</strong><small>Testnet community feed</small></span></div>
-            <div className="community-fact"><ShieldCheck size={15} /><span><strong>Wallet-authored</strong><small>Every post has a verifiable sender</small></span></div>
-            <div className="community-fact"><Database size={15} /><span><strong>Arweave-backed</strong><small>Content resolves from its storage ID</small></span></div>
+            <div className="community-rail-head"><Radio size={16} /><span><strong>{isDemoMode ? 'Community preview' : 'Public signal'}</strong><small>{isDemoMode ? 'Sample posts' : 'Testnet community feed'}</small></span></div>
+            <div className="community-fact"><ShieldCheck size={15} /><span><strong>{isDemoMode ? 'Example authors' : 'Wallet-authored'}</strong><small>{isDemoMode ? 'No wallet transaction is sent' : 'Every post has a verifiable sender'}</small></span></div>
+            <div className="community-fact"><Database size={15} /><span><strong>{isDemoMode ? 'Example storage' : 'Arweave-backed'}</strong><small>{isDemoMode ? 'No live upload in demo mode' : 'Content resolves from its storage ID'}</small></span></div>
             <p>Community posts are public. Keep personal and recovery information inside your encrypted vault.</p>
           </aside>
         </div>

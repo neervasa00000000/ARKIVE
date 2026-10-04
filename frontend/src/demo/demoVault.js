@@ -1,10 +1,10 @@
 import { DEMO_ADDRESS } from '../config/demo'
 
 const SEAL_STEPS = [
-  { label: 'Encrypting on your device', duration: 1400 },
-  { label: 'Sealing to Arweave', duration: 1800 },
-  { label: 'Writing to blockchain', duration: 1200 },
-  { label: 'Done. Permanent.', duration: 600 },
+  { label: 'Reading file details', duration: 240 },
+  { label: 'Preparing sample record', duration: 240 },
+  { label: 'Adding to demo vault', duration: 240 },
+  { label: 'Ready to explore', duration: 180 },
 ]
 
 const UNLOCK_STEPS = [

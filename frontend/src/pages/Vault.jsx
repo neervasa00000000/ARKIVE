@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAccount, useReadContract, useWalletClient } from 'wagmi'
-import { Upload, Lock, AlertTriangle, Search, ShieldCheck, Blocks, Infinity } from 'lucide-react'
+import { Upload, Lock, AlertTriangle, Search, ShieldCheck, Blocks, Database } from 'lucide-react'
 import { CONTRACT_ADDRESSES } from '../config/contracts'
 import VaultRegistryABI from '../contracts/VaultRegistry.json'
 import VaultFileCard from '../components/VaultFileCard'
@@ -38,7 +38,7 @@ function VaultWorkspace({ records, renderRecord, onStore, storeLabel, storeDisab
       <PageHeader
         title="Vault"
         eyebrow="Private archive"
-        description="Encrypted in your browser. Verified onchain. Preserved on Arweave."
+        description={isDemoMode ? 'Explore how records are organised. Demo files stay in this browser session.' : 'Store test files privately, then find and open them when you need them. Keep your originals.'}
         action={(
           <button type="button" onClick={onStore} disabled={storeDisabled} className="btn-primary btn-primary-sm">
             <Upload size={17} /> {storeLabel}
@@ -49,10 +49,10 @@ function VaultWorkspace({ records, renderRecord, onStore, storeLabel, storeDisab
       <section className="vault-signal" aria-label="Vault status">
         <div className="vault-signal-primary">
           <span className="signal-orbit" aria-hidden="true"><ShieldCheck size={19} /></span>
-          <span><strong>{records.length} protected {records.length === 1 ? 'record' : 'records'}</strong><small>Only authorised wallets can decrypt</small></span>
+          <span><strong>{records.length} {isDemoMode ? 'demo' : 'protected'} {records.length === 1 ? 'record' : 'records'}</strong><small>{isDemoMode ? 'Sample content for exploring the vault' : 'Only authorised wallets can decrypt'}</small></span>
         </div>
-        <div className="vault-signal-item"><Blocks size={16} /><span><strong>Onchain proof</strong><small>Base Sepolia</small></span></div>
-        <div className="vault-signal-item signal-permanent"><Infinity size={17} /><span><strong>Permanent storage</strong><small>Arweave anchored</small></span></div>
+        <div className="vault-signal-item"><Blocks size={16} /><span><strong>{isDemoMode ? 'Sample proof' : 'Onchain proof'}</strong><small>{isDemoMode ? 'No transaction sent' : 'Base Sepolia'}</small></span></div>
+        <div className="vault-signal-item signal-permanent"><Database size={17} /><span><strong>{isDemoMode ? 'Demo workspace' : 'Testnet storage'}</strong><small>{isDemoMode ? 'No live upload' : 'Long-term preservation unavailable'}</small></span></div>
       </section>
 
       {records.length > 0 && (
@@ -86,8 +86,8 @@ function VaultWorkspace({ records, renderRecord, onStore, storeLabel, storeDisab
         <EmptyState
           icon={Lock}
           title="Vault is empty"
-          description="Store a file to encrypt it on this device and create a verifiable storage record. Keep your original."
-          action={<button type="button" onClick={onStore} disabled={storeDisabled} className="btn-primary btn-primary-sm"><Upload size={17} /> Store your first record</button>}
+          description={isDemoMode ? 'Add a local file to explore the demo vault. Nothing is encrypted or uploaded.' : 'Store a file to encrypt it on this device and create a verifiable storage record. Keep your original.'}
+          action={<button type="button" onClick={onStore} disabled={storeDisabled} className="btn-primary btn-primary-sm"><Upload size={17} /> {isDemoMode ? 'Add a demo record' : 'Store your first record'}</button>}
         />
       ) : filtered.length === 0 ? (
         <div className="empty-inline" role="status">
@@ -118,7 +118,7 @@ function DemoVaultPage() {
       <VaultWorkspace
         records={records}
         onStore={() => setShowSeal(true)}
-        storeLabel="Store record"
+        storeLabel="Add demo record"
         renderRecord={(record, view) => <VaultRecordCard key={record.id} record={record} view={view} onOpened={(id) => markOpened(id)} />}
       />
 
