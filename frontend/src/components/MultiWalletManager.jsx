@@ -272,7 +272,7 @@ export default function MultiWalletManager({ currentAddress }) {
         <span
           className={`text-xs px-2.5 py-1 rounded-full font-mono font-medium ${
             totalWalletsCount === MAX_TOTAL_WALLETS
-              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+              ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-400 border border-emerald-500/30'
               : 'bg-accent/15 text-accent border border-accent/30'
           }`}
         >
@@ -283,8 +283,8 @@ export default function MultiWalletManager({ currentAddress }) {
       {/* Pending link request banner */}
       {pendingRequest && (
         <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-amber-200">
-            <AlertCircle size={15} className="shrink-0 text-amber-400" />
+          <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
+            <AlertCircle size={15} className="shrink-0 text-amber-600 dark:text-amber-400" />
             <span>Pending link request: {formatShortAddress(pendingRequest)}</span>
           </div>
           <button
@@ -303,7 +303,7 @@ export default function MultiWalletManager({ currentAddress }) {
         {/* Slot 1: Primary Wallet */}
         <div className="p-3 rounded-lg bg-surface-2 border border-line flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="h-2 w-2 rounded-full bg-emerald-400 shrink-0" title="Connected" />
+            <span className="h-2 w-2 rounded-full bg-emerald-600 dark:bg-emerald-400 shrink-0" title="Connected" />
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-sm text-ink font-medium">
@@ -313,7 +313,7 @@ export default function MultiWalletManager({ currentAddress }) {
                   Primary
                 </span>
                 {normalizeEthAddress(currentAddress) === resolvedPrimary && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-medium">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-800 dark:text-emerald-400 font-medium">
                     Active
                   </span>
                 )}
@@ -338,7 +338,7 @@ export default function MultiWalletManager({ currentAddress }) {
             <div className="flex items-center gap-2.5 min-w-0">
               <span
                 className={`h-2 w-2 rounded-full shrink-0 ${
-                  secondaryWallets[0].isConnected ? 'bg-emerald-400' : 'bg-faint'
+                  secondaryWallets[0].isConnected ? 'bg-emerald-600 dark:bg-emerald-400' : 'bg-faint'
                 }`}
                 title={secondaryWallets[0].isConnected ? 'Connected in browser' : 'Offline / Authorized'}
               />
@@ -348,12 +348,12 @@ export default function MultiWalletManager({ currentAddress }) {
                     {formatShortAddress(secondaryWallets[0].address)}
                   </span>
                   {secondaryWallets[0].isLinkedOnchain && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-medium">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-800 dark:text-emerald-400 font-medium">
                       Linked onchain
                     </span>
                   )}
                   {normalizeEthAddress(currentAddress) === secondaryWallets[0].address && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-medium">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-800 dark:text-emerald-400 font-medium">
                       Active
                     </span>
                   )}
@@ -423,7 +423,7 @@ export default function MultiWalletManager({ currentAddress }) {
             <div className="flex items-center gap-2.5 min-w-0">
               <span
                 className={`h-2 w-2 rounded-full shrink-0 ${
-                  secondaryWallets[1].isConnected ? 'bg-emerald-400' : 'bg-faint'
+                  secondaryWallets[1].isConnected ? 'bg-emerald-600 dark:bg-emerald-400' : 'bg-faint'
                 }`}
                 title={secondaryWallets[1].isConnected ? 'Connected in browser' : 'Offline / Authorized'}
               />
@@ -433,12 +433,12 @@ export default function MultiWalletManager({ currentAddress }) {
                     {formatShortAddress(secondaryWallets[1].address)}
                   </span>
                   {secondaryWallets[1].isLinkedOnchain && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-medium">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-800 dark:text-emerald-400 font-medium">
                       Linked onchain
                     </span>
                   )}
                   {normalizeEthAddress(currentAddress) === secondaryWallets[1].address && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-medium">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-800 dark:text-emerald-400 font-medium">
                       Active
                     </span>
                   )}
@@ -559,7 +559,7 @@ export default function MultiWalletManager({ currentAddress }) {
           )}
         </div>
       ) : (
-        <p className="text-[11px] text-emerald-400/90 flex items-center gap-1.5 pt-1">
+        <p className="text-[11px] text-emerald-800 dark:text-emerald-400 flex items-center gap-1.5 pt-1">
           <Check size={14} className="shrink-0" />
           Maximum 3 wallets configured. All 3 wallets can access your data.
         </p>
