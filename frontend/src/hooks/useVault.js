@@ -3,12 +3,13 @@ import { requireSuccessfulReceipt } from '../lib/transactionReceipt'
 // frontend/src/hooks/useVault.js
 import { useState, useRef } from 'react'
 import { useAccount, useWalletClient, useWriteContract, useChainId } from 'wagmi'
-import { waitForTransactionReceipt } from '@wagmi/core'
+import { getAccount, waitForTransactionReceipt } from '@wagmi/core'
 import { wagmiConfig } from '../config/wagmi'
 import { baseSepolia } from 'viem/chains'
 import { CONTRACT_ADDRESSES } from '../config/contracts'
 import VaultRegistryABI from '../contracts/VaultRegistry.json'
 import { getLitClient } from '../config/lit'
+import { assertWalletSession } from '../lib/walletSession'
 import {
   bytesToBase64,
   base64ToBytes,
@@ -71,7 +72,7 @@ const backupDerivedKeyByAddress = new Map()
 const ZERO = '0x0000000000000000000000000000000000000000'
 
 export function useVault() {
-  const { address, isConnected } = useAccount()
+  const { address, connector, isConnected } = useAccount()
   const chainId = useChainId()
   const { data: walletClient } = useWalletClient()
   const { writeContractAsync } = useWriteContract()
@@ -435,17 +436,29 @@ export function useVault() {
 
   async function decryptWithWallet(payload) {
     if (!walletClient || !address) throw new Error('WALLET_NOT_CONNECTED')
+    const selectedAddress = address
+    const selectedConnectorUid = connector?.uid
+    const assertCurrent = () => assertWalletSession(selectedAddress, selectedConnectorUid, walletClient, getAccount(wagmiConfig))
+    assertCurrent()
 
-    assertVaultPayloadOwnership(payload, address)
+    assertVaultPayloadOwnership(payload, selectedAddress)
 
-    const wrap = findWalletKeyWrap(payload, address)
+    const wrap = findWalletKeyWrap(payload, selectedAddress)
     if (!wrap) throw new Error('NO_WALLET_KEY_WRAP')
 
-    const derivedKey = await deriveKeyForPayload(walletClient, address, payload)
+    const derivedKey = await deriveKeyForPayload(walletClient, selectedAddress, payload)
+    assertCurrent()
     const rawFileAesKey = await unwrapFileKeyWithWallet(derivedKey, wrap)
     const fileAesKey = await importRawKey(rawFileAesKey)
     rawFileAesKey.fill(0)
-    return decryptContentWithFileKey(fileAesKey, payload)
+    const result = await decryptContentWithFileKey(fileAesKey, payload)
+    try {
+      assertCurrent()
+      return result
+    } catch (error) {
+      result.decryptedBytes?.fill(0)
+      throw error
+    }
   }
 
   const decryptWithPassphrase = decryptVaultWithPassphrase
@@ -453,15 +466,20 @@ export function useVault() {
   async function retrieveAndDecryptFile(arweaveId, opts = {}) {
     const forceWalletFallback = opts === true || opts?.forceWalletFallback === true
     const recoveryPassphrase = typeof opts?.recoveryPassphrase === 'string' ? opts.recoveryPassphrase : null
+    const selectedAddress = address
+    const selectedConnectorUid = connector?.uid
+    const assertCurrent = () => assertWalletSession(selectedAddress, selectedConnectorUid, walletClient, getAccount(wagmiConfig))
 
     setLoading(true)
     try {
       if (!recoveryPassphrase && (!address || !walletClient)) {
         throw new Error('WALLET_NOT_CONNECTED')
       }
+      if (!recoveryPassphrase) assertCurrent()
 
       setStep('Loading encrypted bundle…')
       const { bytes, source } = await loadVaultBundleBytes(arweaveId)
+      if (!recoveryPassphrase) assertCurrent()
       const parsed = parseVaultBytes(bytes)
 
       let payload
@@ -470,6 +488,9 @@ export function useVault() {
         if (!payload.recoveryWrap) throw new Error('NO_RECOVERY_WRAP')
       } else {
         payload = assertVaultPayloadOwnership(parsed, address)
+        if (payload.schema === VAULT_SCHEMA_V3 && !findWalletKeyWrap(payload, address)) {
+          throw new Error('NO_WALLET_KEY_WRAP')
+        }
       }
 
       setStep(
@@ -495,6 +516,9 @@ export function useVault() {
       }
 
       const { decryptedBytes, meta } = result
+      if (!recoveryPassphrase) {
+        try { assertCurrent() } catch (error) { decryptedBytes?.fill(0); throw error }
+      }
       const fileName = meta?.originalFileName || payload.originalFileName
       const fileType = meta?.originalFileType || payload.originalFileType
 
@@ -542,9 +566,14 @@ export function useVault() {
   async function testRecovery(arweaveId, { method, passphrase = '' } = {}) {
     setLoading(true)
     let decrypted
+    const selectedAddress = address
+    const selectedConnectorUid = connector?.uid
+    const assertCurrent = () => assertWalletSession(selectedAddress, selectedConnectorUid, walletClient, getAccount(wagmiConfig))
     try {
+      assertCurrent()
       setStep('Loading encrypted archive…')
       const { bytes } = await loadVaultBundleBytes(arweaveId)
+      assertCurrent()
       const payload = assertRecoveryTestCompatible(parseVaultBytes(bytes))
       let record
 
@@ -563,6 +592,7 @@ export function useVault() {
         throw new Error('RECOVERY_UNAVAILABLE')
       }
 
+      assertCurrent()
       saveRecoveryTestRecord(record)
       return record
     } finally {

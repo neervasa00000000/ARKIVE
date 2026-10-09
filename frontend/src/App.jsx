@@ -24,7 +24,7 @@ export default function App() {
         element={
           isConnected ? (
             <Suspense fallback={<AppLoader />}>
-              <Layout>
+              <Layout key={wallet.sessionKey}>
                 <Routes>
                   <Route path="/" element={<Navigate to="/vault" replace />} />
                   <Route path="/vault" element={<Vault />} />

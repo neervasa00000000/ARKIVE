@@ -10,6 +10,7 @@ import EmptyState from '../components/EmptyState'
 import { isDemoMode } from '../config/demo'
 import { DEMO_FEED_POSTS } from '../demo/demoFeed'
 import { warmTurboForWallet, prepareFeedUpload } from '../lib/turboUpload'
+import { mergeRecentPosts } from '../lib/feedPosts'
 
 const ZERO = '0x0000000000000000000000000000000000000000'
 
@@ -47,7 +48,7 @@ function FeedContent({ posts, contractsReady, onPost, onLike, onOpenCreate }) {
         <EmptyState
           icon={FileText}
           title="Nothing here yet"
-          description="Create a public test post."
+          description={isDemoMode ? 'Add a demo post to this session.' : 'Create a public test post.'}
           action={(
             <button type="button" onClick={onOpenCreate} className="btn-primary btn-primary-sm">
               <Plus size={17} />
@@ -77,7 +78,13 @@ function FeedContent({ posts, contractsReady, onPost, onLike, onOpenCreate }) {
 
 function DemoFeed() {
   const [showCreate, setShowCreate] = useState(false)
-  const posts = [...DEMO_FEED_POSTS].reverse()
+  const [newPosts, setNewPosts] = useState([])
+  const posts = [...newPosts].reverse().concat([...DEMO_FEED_POSTS].reverse())
+
+  function handleDemoPost(result) {
+    if (result?.optimisticPost) setNewPosts((previous) => [...previous, result.optimisticPost])
+    setShowCreate(false)
+  }
 
   return (
     <>
@@ -87,7 +94,7 @@ function DemoFeed() {
         onLike={() => {}}
       />
       {showCreate && (
-        <CreatePostModal onClose={() => setShowCreate(false)} onSuccess={() => setShowCreate(false)} />
+        <CreatePostModal onClose={() => setShowCreate(false)} onSuccess={handleDemoPost} />
       )}
     </>
   )
@@ -114,13 +121,7 @@ function LiveFeed() {
 
   useEffect(() => {
     if (recentPosts) {
-      setPosts((prev) => {
-        const chainPosts = [...recentPosts].reverse()
-        const pending = prev.filter((p) => p._pending)
-        const chainIds = new Set(chainPosts.map((p) => p.arweaveId))
-        const stillPending = pending.filter((p) => !chainIds.has(p.arweaveId))
-        return [...stillPending, ...chainPosts]
-      })
+      setPosts((prev) => mergeRecentPosts(prev, recentPosts))
     }
   }, [recentPosts])
 

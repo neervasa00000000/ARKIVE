@@ -30,10 +30,10 @@ export default function PostCard({ post, onLike }) {
   })()
 
   useEffect(() => {
-    if (post._optimisticText) {
-      setContent({ text: post._optimisticText })
-      setLoadState('ok')
-      return
+    const submittedText = post._optimisticText
+    if (submittedText) {
+      setContent({ text: submittedText })
+      setLoadState(isDemoPost ? 'ok' : 'pending')
     }
     if (isImage || !arweaveId) return
 
@@ -50,8 +50,10 @@ export default function PostCard({ post, onLike }) {
     }
 
     let cancelled = false
-    setLoadState('loading')
-    setContent(null)
+    if (!submittedText) {
+      setLoadState('loading')
+      setContent(null)
+    }
 
     fetchArweaveContent(validateArweaveTxId(arweaveId))
       .then(({ body }) => {
@@ -59,7 +61,7 @@ export default function PostCard({ post, onLike }) {
         try {
           const data = JSON.parse(body)
           const text = typeof data?.text === 'string' ? data.text.slice(0, 5000) : null
-          setContent(text ? { text } : null)
+          if (text) setContent({ text })
           setLoadState(text ? 'ok' : 'error')
         } catch {
           setLoadState('error')
@@ -104,9 +106,9 @@ export default function PostCard({ post, onLike }) {
         <PermanentDot type="post" />
       </header>
 
-      {isImage && arweaveUrl ? (
+      {isImage && (arweaveUrl || post._demoImageUrl) ? (
         <img
-          src={arweaveUrl}
+          src={post._demoImageUrl || arweaveUrl}
           alt=""
           className="w-full rounded-xl mb-4 object-cover max-h-80 ring-1 ring-white/5"
           onError={(e) => { e.target.style.display = 'none' }}
@@ -145,17 +147,17 @@ export default function PostCard({ post, onLike }) {
 }
 
 function PostBody({ loadState, content }) {
-  if (loadState === 'loading') {
+  if (loadState === 'loading' && !content?.text) {
     return <p className="text-muted text-sm italic">Loading from Arweave…</p>
   }
-  if (loadState === 'error' || !content?.text) {
+  if (!content?.text) {
     return (
       <p className="text-amber-200/80 text-sm leading-relaxed">
         Content unavailable on Arweave. Try creating a new post.
       </p>
     )
   }
-  return <p className="text-ink text-[15px] leading-relaxed">{content.text}</p>
+  return <div><p className="text-ink text-[15px] leading-relaxed">{content.text}</p>{loadState !== 'ok' && <p className="text-xs text-amber-300 mt-2">Showing your submitted text; storage retrieval has not been confirmed yet.</p>}</div>
 }
 
 function formatTimeAgo(timestamp) {

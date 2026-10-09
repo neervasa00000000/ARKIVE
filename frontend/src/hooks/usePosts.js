@@ -1,13 +1,14 @@
 import { requireSuccessfulReceipt } from '../lib/transactionReceipt'
 import { useState } from 'react'
 import { useAccount, useWriteContract, useChainId, useWalletClient } from 'wagmi'
-import { waitForTransactionReceipt } from '@wagmi/core'
+import { getAccount, waitForTransactionReceipt } from '@wagmi/core'
 import { baseSepolia } from 'viem/chains'
 import { wagmiConfig } from '../config/wagmi'
 import { CONTRACT_ADDRESSES } from '../config/contracts'
 import PostRegistryABI from '../contracts/PostRegistry.json'
 import { useArweave } from './useArweave'
 import { validatePostText, validatePostImageDeep, validateArweaveTxId } from '../lib/security'
+import { assertWalletSession } from '../lib/walletSession'
 
 
 function logTiming(phase, startedAt) {
@@ -15,7 +16,7 @@ function logTiming(phase, startedAt) {
 }
 
 export function usePosts() {
-  const { address } = useAccount()
+  const { address, connector } = useAccount()
   const { data: walletClient } = useWalletClient()
   const chainId = useChainId()
   const { uploadToArweave, retryFeedUpload, uploading, step, setStep, SignPromptModal } = useArweave()
@@ -31,6 +32,7 @@ export function usePosts() {
     try {
       if (!address || !walletClient) throw new Error('WALLET_NOT_CONNECTED')
       if (chainId !== 84532) throw new Error('WRONG_NETWORK')
+      assertWalletSession(address, connector?.uid, walletClient, getAccount(wagmiConfig))
 
       const uploadStart = performance.now()
 
@@ -55,6 +57,7 @@ export function usePosts() {
 
       logTiming('upload', uploadStart)
       arweaveId = validateArweaveTxId(arweaveId)
+      assertWalletSession(address, connector?.uid, walletClient, getAccount(wagmiConfig))
 
       setStep('Step 2 of 2 — approve on-chain post in MetaMask')
       const createStart = performance.now()
@@ -71,6 +74,7 @@ export function usePosts() {
         functionName: 'createPost',
         args: [arweaveId, contentType],
         account: address,
+        connector,
         chain: baseSepolia,
       })
       console.info('[ARKIVE] createPost tx hash', hash)
@@ -130,6 +134,7 @@ export function usePosts() {
     try {
       if (!address || !walletClient) throw new Error('WALLET_NOT_CONNECTED')
       if (chainId !== 84532) throw new Error('WRONG_NETWORK')
+      assertWalletSession(address, connector?.uid, walletClient, getAccount(wagmiConfig))
       const safeId = validateArweaveTxId(arweaveId)
       setStep('Step 2 of 2 — approve on-chain post in MetaMask')
       console.info('[ARKIVE] registerPostOnChain submitting', {
@@ -144,6 +149,7 @@ export function usePosts() {
         functionName: 'createPost',
         args: [safeId, contentType],
         account: address,
+        connector,
         chain: baseSepolia,
       })
       console.info('[ARKIVE] createPost tx hash', hash)
@@ -174,12 +180,14 @@ export function usePosts() {
   async function likePost(postId) {
     if (!address) throw new Error('WALLET_NOT_CONNECTED')
     if (chainId !== 84532) throw new Error('WRONG_NETWORK')
+    assertWalletSession(address, connector?.uid, walletClient, getAccount(wagmiConfig))
     const hash = await writeContractAsync({
       address: CONTRACT_ADDRESSES.PostRegistry,
       abi: PostRegistryABI.abi,
       functionName: 'likePost',
       args: [BigInt(postId)],
       account: address,
+      connector,
       chain: baseSepolia,
     })
     await requireSuccessfulReceipt(waitForTransactionReceipt, wagmiConfig, { hash })
@@ -193,6 +201,7 @@ export function usePosts() {
     try {
       if (!address || !walletClient) throw new Error('WALLET_NOT_CONNECTED')
       if (chainId !== 84532) throw new Error('WRONG_NETWORK')
+      assertWalletSession(address, connector?.uid, walletClient, getAccount(wagmiConfig))
 
       if (image) {
         await validatePostImageDeep(image)
@@ -214,6 +223,7 @@ export function usePosts() {
       }
 
       arweaveId = validateArweaveTxId(arweaveId)
+      assertWalletSession(address, connector?.uid, walletClient, getAccount(wagmiConfig))
       setStep('Step 2 of 2 — approve on-chain post in MetaMask')
       const hash = await writeContractAsync({
         address: CONTRACT_ADDRESSES.PostRegistry,
@@ -221,6 +231,7 @@ export function usePosts() {
         functionName: 'createPost',
         args: [arweaveId, contentType],
         account: address,
+        connector,
         chain: baseSepolia,
       })
 

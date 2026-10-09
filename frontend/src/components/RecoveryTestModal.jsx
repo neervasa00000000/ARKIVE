@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAccount } from 'wagmi'
 import { CheckCircle2, KeyRound, ShieldCheck, Wallet } from 'lucide-react'
 import { Modal, ModalBody, ModalHeader } from './Modal'
 import { useVault } from '../hooks/useVault'
@@ -11,6 +12,8 @@ const METHOD_LABELS = {
 }
 
 export default function RecoveryTestModal({ record, onClose }) {
+  const { address, connector } = useAccount()
+  const session = `${connector?.uid || ''}:${address || ''}`
   const archiveId = record.encryptedArweaveId || record.arweaveTxId || record.arweaveId || record.archiveId
   const { inspectRecoveryMethods, testRecovery, loading, step } = useVault()
   const [inspection, setInspection] = useState(null)
@@ -21,6 +24,11 @@ export default function RecoveryTestModal({ record, onClose }) {
 
   useEffect(() => {
     let active = true
+    setInspection(null)
+    setMethod('')
+    setPassphrase('')
+    setResult(null)
+    setError('')
     inspectRecoveryMethods(archiveId)
       .then((next) => {
         if (!active) return
@@ -29,7 +37,7 @@ export default function RecoveryTestModal({ record, onClose }) {
       })
       .catch((reason) => { if (active) setError(recoveryFailureCategory(reason)) })
     return () => { active = false }
-  }, [archiveId])
+  }, [archiveId, session])
 
   async function runTest(event) {
     event.preventDefault()

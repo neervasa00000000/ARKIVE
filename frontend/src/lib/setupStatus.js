@@ -59,6 +59,9 @@ export function vaultErrorMessage(error) {
     if (code === 'WALLET_NOT_CONNECTED') {
       return 'Connect your wallet on Base Sepolia first.'
     }
+    if (code === 'WALLET_SESSION_CHANGED') {
+      return 'The active wallet changed. Reopen this file with the wallet you want to use.'
+    }
     if (code === 'WRONG_NETWORK') {
       return 'Switch MetaMask to Base Sepolia (chain 84532).'
     }

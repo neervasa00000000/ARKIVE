@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { Image, Type, Upload, Link2 } from 'lucide-react'
 import { useWalletClient } from 'wagmi'
+import { isDemoMode, DEMO_ADDRESS } from '../config/demo'
+import { validatePostText, validatePostImageDeep } from '../lib/security'
 import { usePosts } from '../hooks/usePosts'
 import { vaultErrorMessage } from '../lib/setupStatus'
 import { warmTurboForWallet, prepareFeedUpload, estimateBundleByteCount } from '../lib/turboUpload'
@@ -30,6 +32,7 @@ export default function CreatePostModal({ onClose, onSuccess }) {
   const [prep, setPrep] = useState(null)
   const [prepStep, setPrepStep] = useState('')
   const [pendingChain, setPendingChain] = useState(null)
+  const [submitError, setSubmitError] = useState('')
   const [imageHash, setImageHash] = useState(null)
   const [dedupArweaveId, setDedupArweaveId] = useState(null)
   const [imageOptimizedNote, setImageOptimizedNote] = useState(null)
@@ -40,6 +43,7 @@ export default function CreatePostModal({ onClose, onSuccess }) {
   const isStep2 = loading && uploadStep?.includes('Step 2')
 
   useEffect(() => {
+    if (isDemoMode) return
     if (!walletClient) {
       setPrep(null)
       setPrepStep('')
@@ -90,6 +94,7 @@ export default function CreatePostModal({ onClose, onSuccess }) {
 
   async function handleRegisterOnChain() {
     if (!pendingChain) return
+    setSubmitError('')
     try {
       const result = await registerPostOnChain(
         pendingChain.arweaveId,
@@ -100,11 +105,14 @@ export default function CreatePostModal({ onClose, onSuccess }) {
       setPendingChain(null)
       onSuccess?.(result)
     } catch (error) {
-      toast.error(vaultErrorMessage(error))
+      const message = vaultErrorMessage(error)
+      setSubmitError(message)
+      toast.error(message)
     }
   }
 
   async function handleSubmit() {
+    setSubmitError('')
     if (tab === 'text' && !text.trim()) {
       toast.error('Write something first')
       return
@@ -116,6 +124,29 @@ export default function CreatePostModal({ onClose, onSuccess }) {
 
     setPendingChain(null)
     try {
+      if (isDemoMode) {
+        const isImage = tab === 'image'
+        if (isImage) await validatePostImageDeep(image)
+        const demoText = isImage ? undefined : validatePostText(text)
+        const demoId = `demo-feed-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+        onSuccess?.({
+          success: true,
+          optimisticPost: {
+            id: demoId,
+            author: DEMO_ADDRESS,
+            arweaveId: demoId,
+            contentType: isImage ? 'image' : 'text',
+            createdAt: BigInt(Math.floor(Date.now() / 1000)),
+            likes: 0n,
+            exists: true,
+            _demoImageUrl: isImage ? URL.createObjectURL(image) : undefined,
+            _optimisticText: demoText,
+          },
+        })
+        toast.success('Demo post added to this session')
+        return
+      }
+
       if (tab === 'image' && dedupArweaveId) {
         const result = await registerPostOnChain(dedupArweaveId, 'image', undefined)
         toast.success('Already on Arweave — posted without a new upload')
@@ -158,9 +189,13 @@ export default function CreatePostModal({ onClose, onSuccess }) {
       const chainPending = parseChainRegisterError(error)
       if (chainPending?.arweaveId) {
         setPendingChain(chainPending)
-        toast.error(vaultErrorMessage(error), { duration: 8000 })
+        const message = vaultErrorMessage(error)
+        setSubmitError(message)
+        toast.error(message, { duration: 8000 })
       } else {
-        toast.error(vaultErrorMessage(error), { duration: 8000 })
+        const message = vaultErrorMessage(error)
+        setSubmitError(message)
+        toast.error(message, { duration: 8000 })
       }
     }
   }
@@ -171,7 +206,7 @@ export default function CreatePostModal({ onClose, onSuccess }) {
       <Modal onClose={onClose}>
       <ModalHeader
         title="Create post"
-        description="Public test post. Uploaded copies may remain accessible after posting."
+        description={isDemoMode ? 'Add a sample post to this browser session.' : 'Public test post. Uploaded copies may remain accessible after posting.'}
         onClose={onClose}
       />
 
@@ -226,13 +261,13 @@ export default function CreatePostModal({ onClose, onSuccess }) {
           </div>
         )}
 
-        {tab === 'text' && prep?.skipEthPayment && (
+        {!isDemoMode && tab === 'text' && prep?.skipEthPayment && (
           <p className="font-body text-xs text-emerald-600 dark:text-emerald-400 mt-2">
             Storage credits ready — signature only
           </p>
         )}
 
-        {tab === 'image' && dedupArweaveId && (
+        {!isDemoMode && tab === 'image' && dedupArweaveId && (
           <p className="font-body text-xs text-emerald-600 dark:text-emerald-400 mt-2">
             Identical file already on Arweave — this post won't pay for storage again
           </p>
@@ -242,7 +277,7 @@ export default function CreatePostModal({ onClose, onSuccess }) {
           <p className="font-body text-xs text-text-muted mt-2">{imageOptimizedNote}</p>
         )}
 
-        {isStep2 && (
+        {!isDemoMode && isStep2 && (
           <div className="callout mt-4 border-accent/30 bg-accent/5">
             <p className="text-sm font-medium text-text-primary">Confirm post on blockchain</p>
             <p className="text-xs text-text-muted mt-1">
@@ -251,7 +286,7 @@ export default function CreatePostModal({ onClose, onSuccess }) {
           </div>
         )}
 
-        {pendingChain && (
+        {!isDemoMode && pendingChain && (
           <div className="callout callout-warn mt-4">
             <p className="text-sm font-medium text-text-primary">On Arweave — not on feed yet</p>
             <p className="text-xs text-text-muted mt-1 font-mono break-all">
@@ -272,8 +307,10 @@ export default function CreatePostModal({ onClose, onSuccess }) {
           </div>
         )}
 
+        {submitError && <p role="alert" className="notice-inline border-red-500/20 bg-red-500/5 text-sm text-red-300 mt-4">{submitError}</p>}
+
         <div className="mt-4">
-          <MetaMaskSignInlineNotice />
+          {isDemoMode ? <p className="text-xs text-text-muted">Demo only. This post stays in this browser session; no wallet signature, upload, or transaction is sent.</p> : <MetaMaskSignInlineNotice />}
           {!loading && prepStep && (
             <p className="font-body text-xs text-text-muted mt-2">{prepStep}</p>
           )}
@@ -301,7 +338,7 @@ export default function CreatePostModal({ onClose, onSuccess }) {
                   uploadStep?.toLowerCase().includes('signature')
                 ? 'Approve in MetaMask…'
                 : 'Uploading…'
-            : 'Publish test post'}
+            : isDemoMode ? 'Add demo post' : 'Publish test post'}
         </button>
       </ModalFooter>
     </Modal>

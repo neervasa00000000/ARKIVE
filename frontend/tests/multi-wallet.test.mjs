@@ -33,6 +33,31 @@ for (const sameAddress of [false, true]) {
 }
 
 import { signWithSelectedWallet } from '../src/lib/selectedWalletSign.js'
+import { assertWalletSession } from '../src/lib/walletSession.js'
+
+test('decryption session rejects a different wallet or connector', () => {
+  const first = '0x' + '1'.repeat(40)
+  const second = '0x' + '2'.repeat(40)
+  const walletClient = { account: { address: first } }
+  assert.doesNotThrow(() => assertWalletSession(first, 'connector-a', walletClient, {
+    address: first,
+    connector: { uid: 'connector-a' },
+  }))
+  assert.throws(() => assertWalletSession(first, 'connector-a', walletClient, {
+    address: second,
+    connector: { uid: 'connector-b' },
+  }), /WALLET_SESSION_CHANGED/)
+  assert.throws(() => assertWalletSession(first, 'connector-a', walletClient, {
+    address: first,
+    connector: { uid: 'connector-b' },
+  }), /WALLET_SESSION_CHANGED/)
+  assert.throws(() => assertWalletSession(first, 'connector-a', {
+    account: { address: second },
+  }, {
+    address: first,
+    connector: { uid: 'connector-a' },
+  }), /WALLET_SESSION_CHANGED/)
+})
 
 test('signing uses the selected client even when another provider is installed', async () => {
   const previous = globalThis.window
