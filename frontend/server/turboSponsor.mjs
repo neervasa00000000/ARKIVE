@@ -1,4 +1,4 @@
-import { loadSponsorKey, createBoundedRateLimiter } from './sponsorPolicy.mjs'
+import { loadSponsorKey, createBoundedRateLimiter, sponsorBodyLimit } from './sponsorPolicy.mjs'
 /**
  * Local testnet sponsor prototype — an isolated sponsor key signs public feed uploads.
  * User still signs createPost on-chain; this endpoint only covers Arweave bytes.
@@ -71,7 +71,7 @@ function corsHeaders(origin) {
   }
   if (origin && ALLOWED_ORIGINS.has(origin)) {
     headers['Access-Control-Allow-Origin'] = origin
-    headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+    headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS, GET'
     headers['Access-Control-Allow-Headers'] = 'Content-Type'
   }
   return headers
@@ -83,12 +83,12 @@ function readJsonBody(req, maxBytes) {
     let size = 0
     req.on('data', (chunk) => {
       size += chunk.length
-      if (size > maxBytes + 64 * 1024) {
+      if (size > maxBytes) {
         reject(new Error('BODY_TOO_LARGE'))
-        req.destroy()
+        chunks.length = 0
         return
       }
-      chunks.push(chunk)
+      if (size <= maxBytes) chunks.push(chunk)
     })
     req.on('end', () => {
       try {
@@ -98,6 +98,7 @@ function readJsonBody(req, maxBytes) {
       }
     })
     req.on('error', reject)
+    req.on('aborted', () => reject(new Error('REQUEST_ABORTED')))
   })
 }
 
@@ -265,7 +266,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     try {
-      const body = await readJsonBody(req, Math.ceil(MAX_BYTES / 3) * 4 + 128 * 1024)
+      const body = await readJsonBody(req, sponsorBodyLimit(MAX_BYTES))
       console.info('[turboSponsor] sponsor-feed', {
         wallet: body.walletAddress?.slice(0, 10),
         bytes: body.byteCount,

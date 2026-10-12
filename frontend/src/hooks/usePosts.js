@@ -1,6 +1,5 @@
-import { requireSuccessfulReceipt } from '../lib/transactionReceipt'
-import { useState } from 'react'
-import { useAccount, useWriteContract, useChainId, useWalletClient } from 'wagmi'
+import { useEffect, useRef, useState } from 'react'
+import { useAccount, useWriteContract, useChainId, useWalletClient, usePublicClient } from 'wagmi'
 import { getAccount, waitForTransactionReceipt } from '@wagmi/core'
 import { baseSepolia } from 'viem/chains'
 import { wagmiConfig } from '../config/wagmi'
@@ -9,262 +8,110 @@ import PostRegistryABI from '../contracts/PostRegistry.json'
 import { useArweave } from './useArweave'
 import { validatePostText, validatePostImageDeep, validateArweaveTxId } from '../lib/security'
 import { assertWalletSession } from '../lib/walletSession'
-
-
-function logTiming(phase, startedAt) {
-  console.info('[ARKIVE timing]', phase, Math.round(performance.now() - startedAt))
-}
+import { requireSuccessfulReceipt } from '../lib/transactionReceipt'
+import { publishPost, readPendingPost, writePendingPost } from '../lib/postPublishing'
+import { setCachedContent } from '../lib/arweaveCache'
 
 export function usePosts() {
   const { address, connector } = useAccount()
   const { data: walletClient } = useWalletClient()
+  const publicClient = usePublicClient({ chainId: baseSepolia.id })
   const chainId = useChainId()
   const { uploadToArweave, retryFeedUpload, uploading, step, setStep, SignPromptModal } = useArweave()
   const { writeContractAsync } = useWriteContract()
   const [loading, setLoading] = useState(false)
+  const sessionKey = address ? `${baseSepolia.id}:${address.toLowerCase()}` : ''
+  const [pendingPost, setPendingPost] = useState(() => readPendingPost(sessionKey))
+  const pendingRef = useRef(pendingPost)
+  const busy = useRef(false)
 
-  async function createPost({ text, image, preparedFunding }) {
-    setLoading(true)
-    const flowStart = performance.now()
-    let arweaveId
-    let contentType
-    let optimisticText
-    try {
-      if (!address || !walletClient) throw new Error('WALLET_NOT_CONNECTED')
-      if (chainId !== 84532) throw new Error('WRONG_NETWORK')
-      assertWalletSession(address, connector?.uid, walletClient, getAccount(wagmiConfig))
+  useEffect(() => {
+    const restored = readPendingPost(sessionKey)
+    pendingRef.current = restored
+    setPendingPost(restored)
+  }, [sessionKey])
 
-      const uploadStart = performance.now()
-
-      if (image) {
-        await validatePostImageDeep(image)
-        const imageType = image.type === 'image/jpeg' || image.type === 'image/png'
-          ? image.type
-          : image.type?.startsWith('image/')
-            ? image.type
-            : 'image/png'
-        setStep('Uploading…')
-        arweaveId = await uploadToArweave(image, imageType, { preparedFunding })
-        contentType = 'image'
-      } else {
-        const trimmed = validatePostText(text)
-        optimisticText = trimmed
-        const content = JSON.stringify({ text: trimmed, timestamp: Date.now() })
-        setStep('Uploading…')
-        arweaveId = await uploadToArweave(content, 'application/json', { preparedFunding })
-        contentType = 'text'
-      }
-
-      logTiming('upload', uploadStart)
-      arweaveId = validateArweaveTxId(arweaveId)
-      assertWalletSession(address, connector?.uid, walletClient, getAccount(wagmiConfig))
-
-      setStep('Step 2 of 2 — approve on-chain post in MetaMask')
-      const createStart = performance.now()
-      console.info('[ARKIVE] createPost submitting', {
-        arweaveId,
-        contentType,
-        account: address,
-        contract: CONTRACT_ADDRESSES.PostRegistry,
-        chainId: baseSepolia.id,
-      })
-      const hash = await writeContractAsync({
-        address: CONTRACT_ADDRESSES.PostRegistry,
-        abi: PostRegistryABI.abi,
-        functionName: 'createPost',
-        args: [arweaveId, contentType],
-        account: address,
-        connector,
-        chain: baseSepolia,
-      })
-      console.info('[ARKIVE] createPost tx hash', hash)
-      logTiming('createPost', createStart)
-
-      const optimisticPost = {
-        id: `pending-${hash}`,
-        author: address,
-        arweaveId,
-        contentType,
-        createdAt: BigInt(Math.floor(Date.now() / 1000)),
-        likes: 0n,
-        exists: true,
-        _pending: true,
-        _txHash: hash,
-        ...(optimisticText ? { _optimisticText: optimisticText } : {}),
-      }
-
-      setStep('')
-      logTiming('createPostSubmitted', flowStart)
-
-      await requireSuccessfulReceipt(waitForTransactionReceipt, wagmiConfig, { hash })
-
-      return { success: true, arweaveId, txHash: hash, optimisticPost }
-    } catch (error) {
-      const msg = error?.shortMessage || error?.message || String(error)
-      if (msg.includes('user rejected') || msg.includes('User rejected')) {
-        const uploaded = typeof arweaveId === 'string' && arweaveId.length > 20
-        if (uploaded) {
-          throw new Error(
-            `CHAIN_REGISTER_FAILED:${arweaveId}:${contentType || 'text'}:Post is on Arweave but on-chain registration was cancelled. Click Register on blockchain — you should not pay for storage again.`,
-          )
-        }
-      }
-      const uploaded = typeof arweaveId === 'string' && arweaveId.length > 20
-      if (uploaded && !msg.includes('CHAIN_REGISTER_FAILED')) {
-        throw new Error(
-          `CHAIN_REGISTER_FAILED:${arweaveId}:${contentType || 'text'}:Post is on Arweave but on-chain registration failed. Click Register on blockchain — you should not pay for storage again.`,
-        )
-      }
-      console.error('[ARKIVE] createPost failed', {
-        message: msg,
-        arweaveId,
-        contentType,
-        account: address,
-        error,
-      })
-      throw error
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function registerPostOnChain(arweaveId, contentType, optimisticText) {
-    setLoading(true)
-    const createStart = performance.now()
-    try {
-      if (!address || !walletClient) throw new Error('WALLET_NOT_CONNECTED')
-      if (chainId !== 84532) throw new Error('WRONG_NETWORK')
-      assertWalletSession(address, connector?.uid, walletClient, getAccount(wagmiConfig))
-      const safeId = validateArweaveTxId(arweaveId)
-      setStep('Step 2 of 2 — approve on-chain post in MetaMask')
-      console.info('[ARKIVE] registerPostOnChain submitting', {
-        arweaveId: safeId,
-        contentType,
-        account: address,
-        contract: CONTRACT_ADDRESSES.PostRegistry,
-      })
-      const hash = await writeContractAsync({
-        address: CONTRACT_ADDRESSES.PostRegistry,
-        abi: PostRegistryABI.abi,
-        functionName: 'createPost',
-        args: [safeId, contentType],
-        account: address,
-        connector,
-        chain: baseSepolia,
-      })
-      console.info('[ARKIVE] createPost tx hash', hash)
-      logTiming('createPost', createStart)
-
-      const optimisticPost = {
-        id: `pending-${hash}`,
-        author: address,
-        arweaveId: safeId,
-        contentType,
-        createdAt: BigInt(Math.floor(Date.now() / 1000)),
-        likes: 0n,
-        exists: true,
-        _pending: true,
-        _txHash: hash,
-        ...(optimisticText ? { _optimisticText: optimisticText } : {}),
-      }
-
-      setStep('')
-      await requireSuccessfulReceipt(waitForTransactionReceipt, wagmiConfig, { hash })
-
-      return { success: true, arweaveId: safeId, txHash: hash, optimisticPost }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function likePost(postId) {
-    if (!address) throw new Error('WALLET_NOT_CONNECTED')
-    if (chainId !== 84532) throw new Error('WRONG_NETWORK')
+  function assertSession() {
+    if (!address || !walletClient) throw new Error('WALLET_NOT_CONNECTED')
+    if (chainId !== baseSepolia.id) throw new Error('WRONG_NETWORK')
+    if (CONTRACT_ADDRESSES.PostRegistry === '0x0000000000000000000000000000000000000000') throw new Error('CONTRACTS_NOT_DEPLOYED')
     assertWalletSession(address, connector?.uid, walletClient, getAccount(wagmiConfig))
-    const hash = await writeContractAsync({
-      address: CONTRACT_ADDRESSES.PostRegistry,
-      abi: PostRegistryABI.abi,
-      functionName: 'likePost',
-      args: [BigInt(postId)],
-      account: address,
-      connector,
-      chain: baseSepolia,
-    })
-    await requireSuccessfulReceipt(waitForTransactionReceipt, wagmiConfig, { hash })
   }
 
-  async function retryPostUploadAfterPayment({ text, image }) {
+  async function sendPost({ text, image, preparedFunding } = {}, checkpoint, retryPaid = false) {
+    if (busy.current) throw new Error('POST_ALREADY_SENDING')
+    busy.current = true
     setLoading(true)
-    let arweaveId
-    let contentType
-    let optimisticText
+    const contentType = checkpoint?.contentType || (image ? 'image' : 'text')
+    const updateCheckpoint = (value) => {
+      pendingRef.current = value
+      setPendingPost(value)
+      writePendingPost(sessionKey, value)
+    }
     try {
-      if (!address || !walletClient) throw new Error('WALLET_NOT_CONNECTED')
-      if (chainId !== 84532) throw new Error('WRONG_NETWORK')
-      assertWalletSession(address, connector?.uid, walletClient, getAccount(wagmiConfig))
-
-      if (image) {
-        await validatePostImageDeep(image)
-        const imageType = image.type === 'image/jpeg' || image.type === 'image/png'
-          ? image.type
-          : image.type?.startsWith('image/')
-            ? image.type
-            : 'image/png'
-        setStep('Payment sent — finishing upload…')
-        arweaveId = await retryFeedUpload(image, imageType)
-        contentType = 'image'
-      } else {
-        const trimmed = validatePostText(text)
-        optimisticText = trimmed
-        const content = JSON.stringify({ text: trimmed, timestamp: Date.now() })
-        setStep('Payment sent — finishing upload…')
-        arweaveId = await retryFeedUpload(content, 'application/json')
-        contentType = 'text'
+      const safeText = checkpoint?.text ?? (contentType === 'text' ? validatePostText(text) : undefined)
+      assertSession()
+      if (!checkpoint?.arweaveId) {
+        if (image) await validatePostImageDeep(image)
+        // Check contract permissions and daily limits before paying for storage.
+        setStep('Checking post…')
+        await publicClient.simulateContract({
+          address: CONTRACT_ADDRESSES.PostRegistry, abi: PostRegistryABI.abi,
+          functionName: 'createPost', args: ['A'.repeat(43), contentType], account: address,
+        })
       }
-
-      arweaveId = validateArweaveTxId(arweaveId)
-      assertWalletSession(address, connector?.uid, walletClient, getAccount(wagmiConfig))
-      setStep('Step 2 of 2 — approve on-chain post in MetaMask')
-      const hash = await writeContractAsync({
-        address: CONTRACT_ADDRESSES.PostRegistry,
-        abi: PostRegistryABI.abi,
-        functionName: 'createPost',
-        args: [arweaveId, contentType],
-        account: address,
-        connector,
-        chain: baseSepolia,
+      const result = await publishPost({
+        checkpoint: { ...checkpoint, contentType, text: safeText },
+        assertSession, onStep: setStep, onCheckpoint: updateCheckpoint,
+        upload: async () => {
+          const body = image || JSON.stringify({ text: safeText, timestamp: Date.now() })
+          const mime = image?.type || 'application/json'
+          const id = validateArweaveTxId(await (retryPaid ? retryFeedUpload : uploadToArweave)(body, mime, { preparedFunding }))
+          if (safeText) void setCachedContent(id, JSON.stringify({ text: safeText }), 'application/json').catch(() => {})
+          return id
+        },
+        submit: ({ arweaveId }) => writeContractAsync({
+          address: CONTRACT_ADDRESSES.PostRegistry, abi: PostRegistryABI.abi,
+          functionName: 'createPost', args: [validateArweaveTxId(arweaveId), contentType],
+          account: address, connector, chain: baseSepolia,
+        }),
+        confirm: (hash) => requireSuccessfulReceipt(waitForTransactionReceipt, wagmiConfig, { hash, timeout: 60_000 }),
       })
-
-      const optimisticPost = {
-        id: `pending-${hash}`,
-        author: address,
-        arweaveId,
-        contentType,
-        createdAt: BigInt(Math.floor(Date.now() / 1000)),
-        likes: 0n,
-        exists: true,
-        _pending: true,
-        _txHash: hash,
-        ...(optimisticText ? { _optimisticText: optimisticText } : {}),
-      }
-
-      await requireSuccessfulReceipt(waitForTransactionReceipt, wagmiConfig, { hash })
-      setStep('')
-      return { success: true, arweaveId, txHash: hash, optimisticPost }
-    } catch (error) {
-      const msg = error?.shortMessage || error?.message || String(error)
-      const uploaded = typeof arweaveId === 'string' && arweaveId.length > 20
-      if (uploaded) {
-        throw new Error(
-          `CHAIN_REGISTER_FAILED:${arweaveId}:${contentType || 'text'}:Post is on Arweave but on-chain registration failed. Click Register on blockchain — you should not pay for storage again.`,
-        )
-      }
-      console.error('[ARKIVE] retryPostUploadAfterPayment failed', { message: msg, error })
-      throw error
+      return { success: true, arweaveId: result.arweaveId, txHash: result.txHash, optimisticPost: {
+        id: `pending-${result.txHash}`, author: address, arweaveId: result.arweaveId,
+        contentType, createdAt: BigInt(Math.floor(Date.now() / 1000)), likes: 0n,
+        exists: true, _pending: true, _txHash: result.txHash,
+        ...(safeText ? { _optimisticText: safeText } : {}),
+      } }
     } finally {
+      busy.current = false
       setLoading(false)
+      setStep('')
     }
   }
 
-  return { createPost, retryPostUploadAfterPayment, registerPostOnChain, likePost, loading: loading || uploading, uploadStep: step, SignPromptModal }
+  async function createPost(payload) {
+    if (pendingRef.current) throw new Error('POST_NEEDS_RESUME')
+    return sendPost(payload)
+  }
+  async function resumePost() {
+    const checkpoint = pendingRef.current
+    if (!checkpoint) throw new Error('POST_NOT_PENDING')
+    return sendPost({}, checkpoint)
+  }
+  async function registerPostOnChain(arweaveId, contentType, text) {
+    return sendPost({}, { arweaveId: validateArweaveTxId(arweaveId), contentType, text })
+  }
+  async function likePost(postId) {
+    assertSession()
+    const hash = await writeContractAsync({
+      address: CONTRACT_ADDRESSES.PostRegistry, abi: PostRegistryABI.abi,
+      functionName: 'likePost', args: [BigInt(postId)], account: address,
+      connector, chain: baseSepolia,
+    })
+    await requireSuccessfulReceipt(waitForTransactionReceipt, wagmiConfig, { hash, timeout: 60_000 })
+  }
+  return { createPost, resumePost, registerPostOnChain, pendingPost,
+    retryPostUploadAfterPayment: (payload) => sendPost(payload, pendingRef.current, true),
+    likePost, loading: loading || uploading, uploadStep: step, SignPromptModal }
 }

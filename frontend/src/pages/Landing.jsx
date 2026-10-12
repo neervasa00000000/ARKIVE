@@ -1,66 +1,41 @@
-import WalletButton from '../components/WalletButton'
 import { useEffect } from 'react'
+import WalletButton from '../components/WalletButton'
 import Logo from '../components/Logo'
 import { isDemoMode } from '../config/demo'
-import { ArrowDown, ArrowRight, Check, FileText, Fingerprint, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react'
+import { ArrowDown, ArrowUpRight, ArrowRight, LockKeyhole, FileText, Fingerprint } from 'lucide-react'
 
 const steps = [
-  { number: '01', title: 'Choose a file', description: 'Start with a test file. Your original stays with you.' },
-  { number: '02', title: 'Encrypt in your browser', description: 'Your file is sealed on your device before upload.' },
-  { number: '03', title: 'Open when you need it', description: 'Use an authorised wallet or your recovery passphrase.' },
+  { number: '01', title: 'Choose what stays.', description: 'Documents, photographs, a piece of your work. Start with a test file and keep the original.', icon: FileText },
+  { number: '02', title: 'Seal it on your device.', description: 'In the live vault, your browser encrypts the file before anything leaves your device.', icon: LockKeyhole },
+  { number: '03', title: 'Keep the keys.', description: 'Open with an authorised wallet. Add a recovery passphrase and keep an offline archive copy.', icon: Fingerprint },
 ]
 
-export default function Landing() {
-  useEffect(() => { document.title = 'ARKIVE · Your private file archive' }, [])
-
-  return (
-    <div className="landing-shell app-bg min-h-screen">
-      <a href="#main-content" className="skip-link">Skip to main content</a>
-      <header className="landing-header landing-container">
-        <Logo />
-        <div className="landing-header-right">
-          <span className="landing-network"><i /> {isDemoMode ? 'Interactive demo' : 'Base Sepolia testnet'}</span>
-          <a href="#how" className="landing-header-link">How it works <ArrowDown size={14} /></a>
-        </div>
-      </header>
-
-      <main id="main-content">
-        <section className="landing-hero landing-container" aria-labelledby="landing-title">
-          <div className="landing-hero-copy">
-            <p className="landing-kicker"><Sparkles size={14} /> A private space for important files</p>
-            <h1 id="landing-title">Your files,<br /><em>held close.</em></h1>
-            <p className="landing-lead">Explore a calmer way to store and retrieve encrypted files. ARKIVE seals each file in your browser and gives you a clear record of where it goes.</p>
-            <div className="landing-actions">
-              <WalletButton label={isDemoMode ? 'Explore the demo' : 'Connect your wallet'} />
-              <a href="#how" className="landing-secondary-link">See how it works <ArrowRight size={16} /></a>
-            </div>
-            <p className="landing-caution"><ShieldCheck size={16} /> Testnet preview. Use test files and keep your originals. Long-term preservation is not yet available.</p>
-          </div>
-
-          <div className="landing-art" role="img" aria-label="Illustration of a file encrypted in the browser and stored in a private vault">
-            <div className="art-orbit art-orbit-one" aria-hidden="true" />
-            <div className="art-orbit art-orbit-two" aria-hidden="true" />
-            <div className="art-float art-float-top"><span className="art-mini-icon"><Fingerprint size={16} /></span><span>Only you hold the key</span><Check size={15} /></div>
-            <div className="art-vault">
-              <div className="art-vault-top"><span><span className="art-live-dot" /> PRIVATE VAULT</span><span>01 / 03</span></div>
-              <div className="art-file-mark"><FileText size={36} strokeWidth={1.4} /><span><LockKeyhole size={14} /></span></div>
-              <p className="art-file-title">Your next chapter</p>
-              <p className="art-file-subtitle">Encrypted before upload</p>
-              <div className="art-vault-progress"><span /></div>
-              <div className="art-vault-bottom"><span><Check size={14} /> Browser encrypted</span><span>Ready to store</span></div>
-            </div>
-            <div className="art-float art-float-bottom"><ShieldCheck size={18} /><span><strong>Private by design</strong><small>Access stays in your hands</small></span></div>
-          </div>
-        </section>
-
-        <section id="how" className="landing-how landing-container" aria-labelledby="how-title">
-          <div className="landing-section-intro"><p className="landing-kicker">THE SIMPLE PATH</p><h2 id="how-title">A clear process, from start to finish.</h2><p>Every step is visible, so you always know what happens to your file.</p></div>
-          <div className="landing-steps">
-            {steps.map((step) => <article className="landing-step" key={step.number}><span>{step.number}</span><h3>{step.title}</h3><p>{step.description}</p></article>)}
-          </div>
-        </section>
-      </main>
-      <footer className="landing-footer landing-container"><Logo size="sm" /><span>ARKIVE is currently a testnet preview.</span></footer>
+function ArchiveObject() {
+  return <div className="archive-object" aria-label="An archival folder containing a photograph, a document, and an encrypted file" role="img">
+    <div className="object-caption"><span>THE PERSONAL ARCHIVE</span><span>FIG. 001</span></div>
+    <div className="archive-stack" aria-hidden="true">
+      <div className="archive-sheet sheet-back"><div className="sheet-label">FIELD NOTES / 2026</div><div className="sheet-lines" /><div className="sheet-lines short" /></div>
+      <div className="archive-sheet sheet-photo"><div className="landscape"><div className="landscape-sun" /><div className="landscape-ridge ridge-back" /><div className="landscape-ridge ridge-front" /></div><span>Somewhere worth remembering.</span></div>
+      <div className="archive-folder"><div className="folder-tab">ARKIVE — 001</div><div className="folder-face"><div className="folder-meta"><span>PERSONAL COLLECTION</span><LockKeyhole size={18} /></div><p>Keep it.<br />Keep the keys.</p><div className="folder-bottom"><span>PRIVATE BY DESIGN</span><div className="archive-barcode" /></div></div></div>
     </div>
-  )
+    <div className="object-baseline"><span><span className="status-square" /> ENCRYPTED IN YOUR BROWSER</span><span>01 — 03</span></div>
+  </div>
+}
+
+export default function Landing() {
+  useEffect(() => { document.title = 'ARKIVE · Keep it. Keep the keys.' }, [])
+  return <div className="archive-landing">
+    <a href="#main-content" className="skip-link">Skip to main content</a>
+    <header className="archive-header archive-container"><a href="#main-content" aria-label="ARKIVE home"><Logo /></a><nav aria-label="Main"><a href="#how">The process <ArrowDown size={14} /></a><span className="edition-label">{isDemoMode ? 'INTERACTIVE DEMO' : 'TESTNET EDITION'}<span className="status-square" /></span></nav></header>
+    <main id="main-content">
+      <section className="archive-hero archive-container" aria-labelledby="landing-title">
+        <div className="archive-hero-copy"><p className="archive-eyebrow"><span /> YOUR FILES. YOUR CUSTODY.</p><h1 id="landing-title">Some things<br />are worth<br /><span>keeping.</span></h1><p className="archive-intro">A personal archive for what matters.<br />Encrypted on your device. Opened with your keys.</p><div className="archive-cta"><WalletButton label={isDemoMode ? 'Enter the demo' : 'Open your vault'} /><ArrowUpRight size={22} aria-hidden="true" /></div><p className="archive-disclosure">{isDemoMode ? 'Sample records. No wallet or payment needed.' : 'Connect a wallet to begin. Base Sepolia testnet.'}</p></div>
+        <ArchiveObject />
+      </section>
+      <div className="archive-principles archive-container"><span><span className="principle-number">01</span> Browser encryption</span><span><span className="principle-number">02</span> Keys in your custody</span><span><span className="principle-number">03</span> Independent recovery</span><a href="#how" aria-label="Explore how ARKIVE works"><ArrowDown size={20} /></a></div>
+      <section id="how" className="archive-process archive-container"><div className="process-heading"><p className="archive-eyebrow">THE PROCESS / 01—03</p><h2>What goes in.<br />What stays yours.</h2><p>Three steps, with a record of each.<br />No mystery about where your file goes.</p></div><div className="process-steps">{steps.map(({ number, title, description, icon: Icon }) => <article key={number}><div className="process-index"><span>{number}</span><Icon size={21} strokeWidth={1.5} /></div><h3>{title}</h3><p>{description}</p></article>)}</div></section>
+      <section className="archive-note archive-container"><span className="archive-eyebrow">A NOTE ON THIS EDITION</span><p>ARKIVE is a testnet prototype. Use test files and keep your originals and an independent backup. Testnet storage is not a long-term preservation guarantee.</p><a href="https://github.com/neervasa00000000/ARKIVE" target="_blank" rel="noopener noreferrer" className="archive-source">Built in the open <ArrowUpRight size={16} /></a></section>
+    </main>
+    <footer className="archive-footer archive-container"><Logo size="sm" /><span>KEEP IT. KEEP THE KEYS.</span><a href="#main-content">Back to top <ArrowRight size={15} /></a></footer>
+  </div>
 }

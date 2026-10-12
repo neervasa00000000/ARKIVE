@@ -23,9 +23,11 @@ function RealWalletButton(props) {
     catch { setError('Unable to switch wallets. Try reconnecting that wallet.') }
   }
 
+  if (!isConnected) return <button type="button" className="btn-primary" onClick={openConnectModal} disabled={!openConnectModal}>{props.label || 'Connect wallet'}</button>
+
   return (
     <div className="space-y-2 min-w-0">
-      <ConnectButton {...props} />
+      <ConnectButton {...props} accountStatus="address" />
       {isConnected && (
         <details className="text-xs text-muted">
           <summary className="cursor-pointer py-2">Switch wallet</summary>
@@ -53,7 +55,14 @@ function RealWalletButton(props) {
 export default function WalletButton({ label, accountStatus, showBalance }) {
   const { isConnected, address, connect, disconnect } = useWalletState()
   const { resetVault } = useDemoVault()
+  const [connecting, setConnecting] = useState(false)
   const sidebar = accountStatus === 'avatar'
+
+  async function handleConnect() {
+    if (connecting) return
+    setConnecting(true)
+    try { await connect?.() } finally { setConnecting(false) }
+  }
 
   function handleDisconnect() {
     disconnect?.()
@@ -92,8 +101,8 @@ export default function WalletButton({ label, accountStatus, showBalance }) {
 
   if (isDemoMode && connect) {
     return (
-      <button type="button" onClick={() => connect()} className="btn-primary">
-        {label || 'Connect wallet'}
+      <button type="button" onClick={handleConnect} disabled={connecting} aria-busy={connecting} className="btn-primary">
+        {connecting ? 'Opening…' : label || 'Connect wallet'}
       </button>
     )
   }
@@ -101,7 +110,7 @@ export default function WalletButton({ label, accountStatus, showBalance }) {
   return (
     <ConnectButton
       label={label}
-      accountStatus={accountStatus}
+      accountStatus="address"
       showBalance={showBalance}
     />
   )

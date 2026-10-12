@@ -44,7 +44,7 @@ export default function VaultRecordCard({ record, onOpened, view = 'grid' }) {
         <UnlockModal
           record={record}
           onClose={() => setShowUnlock(false)}
-          onOpened={() => { onOpened?.(record.id); setShowUnlock(false) }}
+          onOpened={() => { onOpened?.(record.id) }}
         />
       )}
       {showCert && <PermanenceCertificate record={record} onClose={() => setShowCert(false)} />}

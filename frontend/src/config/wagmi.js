@@ -1,6 +1,6 @@
-import { getDefaultConfig } from '@rainbow-me/rainbowkit'
+import { getDefaultConfig, connectorsForWallets } from '@rainbow-me/rainbowkit'
 import { createConfig, http } from 'wagmi'
-import { injected } from 'wagmi/connectors'
+import { injectedWallet } from '@rainbow-me/rainbowkit/wallets'
 import { baseSepolia } from 'wagmi/chains'
 
 const PLACEHOLDER_IDS = new Set([
@@ -33,6 +33,11 @@ export const wagmiConfig = hasWalletConnectCloudId
     })
   : createConfig({
       ...sharedOptions,
-      connectors: [injected()],
+      // RainbowKit needs its connector metadata to render the fallback choice.
+      // The injected wallet does not use WalletConnect or require a cloud ID.
+      connectors: connectorsForWallets(
+        [{ groupName: 'Browser wallet', wallets: [injectedWallet] }],
+        { appName: 'ARKIVE' },
+      ),
 
     })

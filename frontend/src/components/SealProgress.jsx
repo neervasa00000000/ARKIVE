@@ -1,3 +1,5 @@
+import { Check } from 'lucide-react'
+
 const STEPS = [
   'Encrypting on your device',
   'Sealing to Arweave',
@@ -47,7 +49,7 @@ export default function SealProgress({ currentStep, demo = false }) {
               <div className="ml-auto h-3 w-3 border-2 border-ink border-t-transparent rounded-full animate-spin" />
             )}
             {done && (
-              <span className="ml-auto font-mono text-xs text-faint">✓</span>
+              <Check size={14} className="ml-auto text-faint" aria-label="Complete" />
             )}
           </div>
         )

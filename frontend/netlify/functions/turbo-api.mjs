@@ -1,4 +1,5 @@
-import { loadSponsorKey, createBoundedRateLimiter } from '../../server/sponsorPolicy.mjs'
+import { readResponseBytes } from '../../src/lib/boundedResponse.js'
+import { loadSponsorKey, createBoundedRateLimiter, sponsorBodyLimit } from '../../server/sponsorPolicy.mjs'
 /**
  * Netlify serverless: /api/turbo/health + /api/turbo/sponsor-feed
  */
@@ -80,11 +81,17 @@ async function handleSponsorFeed(req, origin, clientIp) {
 
   try {
     const contentLength = Number(req.headers.get('content-length') || 0)
-    if (contentLength > MAX_BYTES + 128 * 1024) {
+    if (contentLength > sponsorBodyLimit(MAX_BYTES)) {
       return jsonResponse(413, { error: 'BODY_TOO_LARGE' }, origin)
     }
 
-    const body = await req.json()
+    let body
+    try {
+      const bytes = await readResponseBytes(req, sponsorBodyLimit(MAX_BYTES))
+      body = JSON.parse(new TextDecoder().decode(bytes))
+    } catch (error) {
+      return jsonResponse(error.message === 'RESPONSE_TOO_LARGE' ? 413 : 400, { error: error.message === 'RESPONSE_TOO_LARGE' ? 'BODY_TOO_LARGE' : 'INVALID_JSON' }, origin)
+    }
     const walletKey = typeof body?.walletAddress === 'string' ? body.walletAddress.toLowerCase() : null
     if (walletKey && !rateLimit(`wallet:${walletKey}`, RATE_MAX_PER_WALLET)) {
       return jsonResponse(429, { error: 'RATE_LIMIT_WALLET' }, origin)

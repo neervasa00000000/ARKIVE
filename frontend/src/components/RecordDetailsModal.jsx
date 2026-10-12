@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast'
 import { useState } from 'react'
 import {
   Archive,
@@ -26,9 +27,11 @@ function CopyValue({ label, value }) {
 
   async function copy() {
     if (!value) return
-    await navigator.clipboard.writeText(value)
-    setCopied(true)
-    window.setTimeout(() => setCopied(false), 1600)
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1600)
+    } catch { toast.error('Could not copy. Select the value and copy it manually.') }
   }
 
   return (
@@ -51,9 +54,9 @@ export default function RecordDetailsModal({ record, onClose, onRetrieve, onCert
   const originalHash = record.originalContentHash || record.contentHash
 
   const steps = [
-    { icon: FileKey, title: 'Encrypted on this device', detail: 'File contents were encrypted before upload.' },
-    { icon: Wallet, title: 'Authorised by wallet', detail: wallet ? `Owner ${short(wallet, 6, 4)}` : 'Wallet ownership recorded.' },
-    { icon: HardDrive, title: 'Stored on Arweave', detail: txId ? `Transaction ${short(txId)}` : 'Storage transaction pending.' },
+    { icon: FileKey, title: isDemoMode ? 'Encryption preview' : 'Encrypted on this device', detail: isDemoMode ? 'Demo file only. No encryption was performed.' : 'File contents were encrypted before upload.' },
+    { icon: Wallet, title: isDemoMode ? 'Example owner' : 'Authorised by wallet', detail: wallet ? `Owner ${short(wallet, 6, 4)}` : 'Wallet ownership recorded.' },
+    { icon: HardDrive, title: isDemoMode ? 'Sample storage identifier' : 'Stored on Arweave', detail: isDemoMode ? 'No file was uploaded to Arweave.' : txId ? `Transaction ${short(txId)}` : 'Storage transaction pending.' },
     { icon: CheckCircle2, title: 'Registered on Base', detail: isDemoMode ? 'Simulated in this demo workspace.' : 'Vault registry entry confirmed on Base Sepolia.' },
   ]
 
@@ -67,8 +70,8 @@ export default function RecordDetailsModal({ record, onClose, onRetrieve, onCert
       />
       <ModalBody>
         <div className="detail-status-row">
-          <span className="status-badge status-badge-success"><ShieldCheck size={14} /> Encrypted</span>
-          <span className="status-badge"><Fingerprint size={14} /> Integrity recorded</span>
+          <span className="status-badge status-badge-success"><ShieldCheck size={14} /> {isDemoMode ? 'Demo record' : 'Encrypted'}</span>
+          <span className="status-badge"><Fingerprint size={14} /> {isDemoMode ? 'Sample proof' : 'Integrity recorded'}</span>
           <span className="status-badge">{record.fileType || 'File'}</span>
         </div>
 

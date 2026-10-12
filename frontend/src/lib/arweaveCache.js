@@ -1,3 +1,4 @@
+import { fetchFirstContent } from './gatewayFetch.js'
 import { readResponseBytes } from './boundedResponse.js'
 import { bytesToBase64, base64ToBytes } from './security.js'
 
@@ -104,6 +105,8 @@ const GATEWAYS = [
   (id) => `https://arweave.net/${id}`,
 ]
 
+export function arweaveGatewayUrls(txId) { return GATEWAYS.map((gateway) => gateway(txId)) }
+
 function looksLikeHtmlError(bytes) {
   if (bytes.length < 5) return false
   const head = new TextDecoder().decode(bytes.subarray(0, Math.min(32, bytes.length))).toLowerCase()
@@ -130,39 +133,6 @@ async function probeGatewayBytes(txId) {
   }
   if (saw404) return null
   return null
-}
-
-async function fetchFromGateways(txId, parseResponse) {
-  let saw404 = false
-  let lastNetworkError
-  const maxRounds = 4
-
-  for (let round = 0; round < maxRounds; round++) {
-    for (const gateway of GATEWAYS) {
-      try {
-        const response = await fetch(gateway(txId), { redirect: 'follow', signal: AbortSignal.timeout(12000) })
-        if (response.status === 404) {
-          saw404 = true
-          continue
-        }
-        if (!response.ok) continue
-        const contentType = response.headers.get('content-type') || 'application/octet-stream'
-        const parsed = await parseResponse(response, contentType)
-        if (!parsed) continue
-        return { ...parsed, contentType }
-      } catch (err) {
-        lastNetworkError = err
-      }
-    }
-    if (round < maxRounds - 1) {
-      await sleep(2500)
-    }
-  }
-
-  if (saw404 && !lastNetworkError) {
-    throw new Error('ARWEAVE_NOT_FOUND')
-  }
-  throw lastNetworkError || new Error('ARWEAVE_FETCH_FAILED')
 }
 
 /** Fire-and-forget gateway refresh after upload (does not block the UI). */
@@ -250,20 +220,33 @@ export async function fetchArweaveBytesFast(txId) {
  * Fetch Arweave content with IndexedDB cache and gateway fallback.
  * @param {string} txId — validated Arweave transaction ID
  */
+const contentRequests = new Map()
 export async function fetchArweaveContent(txId) {
-  const cached = await getCachedContent(txId)
-  if (cached?.body) {
-    return cached
-  }
-
-  const result = await fetchFromGateways(txId, async (response, contentType) => {
-    const body = new TextDecoder().decode(await readResponseBytes(response, 64 * 1024))
-    if (!body) return null
-    await setCachedContent(txId, body, contentType)
-    return { body, cachedAt: Date.now() }
-  })
-
-  return result
+  if (contentRequests.has(txId)) return contentRequests.get(txId)
+  const request = (async () => {
+    const cached = await getCachedContent(txId)
+    if (cached?.body) return cached
+    if (cached?.bodyBase64) {
+      const bytes = base64ToBytes(cached.bodyBase64)
+      if (bytes.length <= 64 * 1024) {
+        const body = new TextDecoder().decode(bytes)
+        try {
+          if (typeof JSON.parse(body)?.text === 'string') return { body, contentType: 'application/json', cachedAt: cached.cachedAt }
+        } catch { /* Fall through to the gateways for invalid cached content. */ }
+      }
+    }
+    const result = await fetchFirstContent(arweaveGatewayUrls(txId), async (response) => {
+      const bytes = await readResponseBytes(response, 64 * 1024)
+      if (looksLikeHtmlError(bytes)) return null
+      const body = new TextDecoder().decode(bytes)
+      try { if (typeof JSON.parse(body)?.text !== 'string') return null } catch { return null }
+      return { body, contentType: response.headers.get('content-type') || 'application/json', cachedAt: Date.now() }
+    })
+    void setCachedContent(txId, result.body, result.contentType).catch(() => {})
+    return result
+  })()
+  contentRequests.set(txId, request)
+  try { return await request } finally { contentRequests.delete(txId) }
 }
 
 /**

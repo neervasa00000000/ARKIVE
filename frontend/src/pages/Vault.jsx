@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAccount, useReadContract, useWalletClient } from 'wagmi'
-import { Upload, Lock, AlertTriangle, Search, ShieldCheck, Blocks, Database } from 'lucide-react'
+import { Upload, Lock, AlertTriangle, Search, LayoutGrid, List, RotateCw } from 'lucide-react'
 import { CONTRACT_ADDRESSES } from '../config/contracts'
 import VaultRegistryABI from '../contracts/VaultRegistry.json'
 import VaultFileCard from '../components/VaultFileCard'
@@ -24,6 +24,7 @@ function VaultWorkspace({ records, renderRecord, onStore, storeLabel, storeDisab
   const [query, setQuery] = useState('')
   const [type, setType] = useState('all')
   const [sort, setSort] = useState('newest')
+  const [view, setView] = useState('grid')
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -36,9 +37,9 @@ function VaultWorkspace({ records, renderRecord, onStore, storeLabel, storeDisab
   return (
     <>
       <PageHeader
-        title="Vault"
-        eyebrow="Private archive"
-        description={isDemoMode ? 'Explore how records are organised. Demo files stay in this browser session.' : 'Store test files privately, then find and open them when you need them. Keep your originals.'}
+        title="Your vault."
+        eyebrow="01 / PRIVATE ARCHIVE"
+        description={isDemoMode ? 'Explore sample records or add a file.' : 'Encrypted files for your authorised wallets.'}
         action={(
           <button type="button" onClick={onStore} disabled={storeDisabled} className="btn-primary btn-primary-sm">
             <Upload size={17} /> {storeLabel}
@@ -46,14 +47,7 @@ function VaultWorkspace({ records, renderRecord, onStore, storeLabel, storeDisab
         )}
       />
 
-      <section className="vault-signal" aria-label="Vault status">
-        <div className="vault-signal-primary">
-          <span className="signal-orbit" aria-hidden="true"><ShieldCheck size={19} /></span>
-          <span><strong>{records.length} {isDemoMode ? 'demo' : 'protected'} {records.length === 1 ? 'record' : 'records'}</strong><small>{isDemoMode ? 'Sample content for exploring the vault' : 'Only authorised wallets can decrypt'}</small></span>
-        </div>
-        <div className="vault-signal-item"><Blocks size={16} /><span><strong>{isDemoMode ? 'Sample proof' : 'Onchain proof'}</strong><small>{isDemoMode ? 'No transaction sent' : 'Base Sepolia'}</small></span></div>
-        <div className="vault-signal-item signal-permanent"><Database size={17} /><span><strong>{isDemoMode ? 'Demo workspace' : 'Testnet storage'}</strong><small>{isDemoMode ? 'No live upload' : 'Long-term preservation unavailable'}</small></span></div>
-      </section>
+      <div className="vault-summary"><Lock size={14} /><span>{records.length} {records.length === 1 ? 'record' : 'records'}</span></div>
 
       {records.length > 0 && (
         <section className="vault-toolbar" aria-label="Find and arrange records">
@@ -79,6 +73,10 @@ function VaultWorkspace({ records, renderRecord, onStore, storeLabel, storeDisab
               <option value="oldest">Oldest first</option>
             </select>
           </label>
+          <div className="view-toggle" aria-label="Record layout">
+            <button type="button" onClick={() => setView('grid')} aria-pressed={view === 'grid'} aria-label="Grid view"><LayoutGrid size={17} /></button>
+            <button type="button" onClick={() => setView('list')} aria-pressed={view === 'list'} aria-label="List view"><List size={18} /></button>
+          </div>
         </section>
       )}
 
@@ -86,7 +84,7 @@ function VaultWorkspace({ records, renderRecord, onStore, storeLabel, storeDisab
         <EmptyState
           icon={Lock}
           title="Vault is empty"
-          description={isDemoMode ? 'Add a local file to explore the demo vault. Nothing is encrypted or uploaded.' : 'Store a file to encrypt it on this device and create a verifiable storage record. Keep your original.'}
+          description={isDemoMode ? 'Add a demo record. Files stay on this device.' : 'Choose a file to encrypt and store. Keep your original.'}
           action={<button type="button" onClick={onStore} disabled={storeDisabled} className="btn-primary btn-primary-sm"><Upload size={17} /> {isDemoMode ? 'Add a demo record' : 'Store your first record'}</button>}
         />
       ) : filtered.length === 0 ? (
@@ -98,8 +96,8 @@ function VaultWorkspace({ records, renderRecord, onStore, storeLabel, storeDisab
       ) : (
         <section aria-label="Vault records">
           <div className="section-heading-row"><h2>Records</h2><span aria-live="polite">{filtered.length} shown</span></div>
-          <div className="record-list">
-            {filtered.map((record) => renderRecord(record, 'list'))}
+          <div className={view === 'list' ? 'record-list' : 'record-grid'}>
+            {filtered.map((record) => renderRecord(record, view))}
           </div>
         </section>
       )}
@@ -137,11 +135,12 @@ function LiveVaultPage() {
     if (walletClient) warmTurboForWallet(walletClient)
   }, [walletClient])
 
-  const { data: files, refetch } = useReadContract({
+  const { data: files, refetch, isPending, isError, isFetching } = useReadContract({
     address: CONTRACT_ADDRESSES.VaultRegistry,
     abi: VaultRegistryABI.abi,
     functionName: 'getMyFiles',
     account: address,
+    query: { enabled: setup.ready },
   })
 
   return (
@@ -158,13 +157,15 @@ function LiveVaultPage() {
         </div>
       )}
 
-      <VaultWorkspace
+      {setup.ready && isPending ? <div className="archive-loading" role="status">Loading your records…</div> : setup.ready && isError ? (
+        <div className="callout callout-warn mb-8" role="alert"><div><strong>Your records could not be loaded.</strong><p>Check your connection and try again.</p></div><button type="button" className="btn-secondary" disabled={isFetching} onClick={() => refetch()}><RotateCw size={16} />Retry</button></div>
+      ) : <VaultWorkspace
         records={files || []}
         onStore={() => setShowUpload(true)}
         storeLabel="Store file"
         storeDisabled={!setup.ready}
         renderRecord={(file, view) => <VaultFileCard key={file.id.toString()} file={file} view={view} onDeleted={refetch} />}
-      />
+      />}
 
       {showUpload && (
         <UploadModal

@@ -2,10 +2,10 @@ import { TURBO_PAYMENT_HINT } from '../lib/turboUpload'
 
 const COPY = {
   vault: {
-    title: 'Two MetaMask steps',
+    title: 'Wallet approvals',
     steps: [
-      'Storage — vault key signature, optional ETH payment, storage signature (encoded text in MetaMask is normal)',
-      'Blockchain — confirm storeFile on Base Sepolia',
+      'Unlock your key, then approve storage and any ETH payment.',
+      'Confirm the file record on Base Sepolia.',
     ],
   },
 }
@@ -24,7 +24,7 @@ export function WalletUploadNotice({ context = 'vault' }) {
       </ol>
       <p className="font-body pt-1">{TURBO_PAYMENT_HINT}</p>
       <p className="font-body">
-        Already paid? Wait 1–2 minutes and retry — storage credits should apply without a second payment.
+        Already paid? Wait 1–2 minutes, then retry using existing credits.
       </p>
     </div>
   )
@@ -33,7 +33,7 @@ export function WalletUploadNotice({ context = 'vault' }) {
 export function VaultKeySignNotice() {
   return (
     <p className="font-body text-xs text-text-muted notice-inline">
-      Your vault signature unlocks your file keys. Only approve it on your trusted ARKIVE site; another site requesting the same signature could decrypt your archives.
+      This signature unlocks your archive. Only sign on your trusted ARKIVE site.
     </p>
   )
 }

@@ -36,7 +36,7 @@ export function Modal({ children, onClose, size = 'max-w-lg', zIndex = 'z-50' })
     const last = focusable[focusable.length - 1]
     if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
       event.preventDefault(); last.focus()
-    } else if (!event.shiftKey && document.activeElement === last) {
+    } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === panelRef.current)) {
       event.preventDefault(); first.focus()
     }
   }

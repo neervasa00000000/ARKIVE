@@ -41,26 +41,34 @@ export function vaultErrorMessage(error) {
   const status = error?.status ?? error?.statusCode ?? error?.cause?.status
 
   const mapped = (() => {
+    if (code === 'EMPTY_POST') return 'Write a message first.'
+    if (code === 'POST_TOO_LONG') return 'Keep your post under 2,000 characters.'
+    if (code === 'IMAGE_TOO_LARGE') return 'Choose an image under 10 MB.'
+    if (code === 'POST_ALREADY_SENDING') return 'Your post is already sending.'
+    if (code === 'POST_NEEDS_RESUME') return 'Finish your pending post before starting another.'
+    if (code === 'POST_NOT_PENDING') return 'No pending post. Start a new post.'
+    if (lower.includes('daily post limit') || lower.includes('post limit reached')) return 'Daily post limit reached. Try tomorrow.'
+    if (code.startsWith('TRANSACTION_REVERTED:')) return 'The transaction failed. Retry to submit the uploaded content.'
     if (code === 'ARWEAVE_VERIFY_FAILED') {
       return 'Upload finished but the file is not on Arweave yet. Wait a minute and try sealing again.'
     }
     if (code === 'ARWEAVE_NOT_FOUND') {
-      return 'This vault entry has no file on Arweave (old failed upload). Delete it and store the file again.'
+      return 'File unavailable from storage. Retry later or open your offline copy.'
     }
     if (code === 'ARWEAVE_FETCH_FAILED' || lower.includes('failed to fetch from arweave')) {
       return 'Could not load file from Arweave yet. Wait 1–2 minutes after upload and try again.'
     }
     if (code === 'ARWEAVE_FETCH_TIMEOUT') {
-      return 'Arweave is slow right now. If you uploaded on this browser, try Sign & View again.'
+      return 'Storage is taking longer. Retry or open your offline copy.'
     }
     if (lower === 'failed to fetch' || lower.includes('failed to fetch')) {
-      return 'Could not reach Turbo/Arweave storage. Hard-refresh, disable ad blockers, approve MetaMask ETH if shown, then retry.'
+      return 'Couldn’t reach storage. Check your connection and retry.'
     }
     if (code === 'WALLET_NOT_CONNECTED') {
       return 'Connect your wallet on Base Sepolia first.'
     }
     if (code === 'WALLET_SESSION_CHANGED') {
-      return 'The active wallet changed. Reopen this file with the wallet you want to use.'
+      return 'Wallet changed. Switch back to continue.'
     }
     if (code === 'WRONG_NETWORK') {
       return 'Switch MetaMask to Base Sepolia (chain 84532).'
@@ -111,7 +119,7 @@ export function vaultErrorMessage(error) {
       return 'Invalid file selected.'
     }
     if (code === 'FILE_TYPE_BLOCKED') {
-      return 'This file type cannot be sealed.'
+      return 'This file type is not supported.'
     }
     if (code === 'UNKNOWN_FILE_TYPE') {
       return 'Unknown file type. Use a standard extension (.pdf, .png, .txt, etc.) or set a correct MIME type.'
@@ -120,7 +128,7 @@ export function vaultErrorMessage(error) {
       return 'File content does not match its type (possible disguised executable).'
     }
     if (lower.includes('user rejected') || lower.includes('denied')) {
-      return 'You cancelled a step in MetaMask. Try again and approve all prompts.'
+      return 'Wallet request cancelled. Retry when ready.'
     }
     if (code === 'TURBO_WALLET_MISMATCH') {
       return 'Wallet mismatch for storage. Disconnect MetaMask, reconnect on Base Sepolia, retry.'
@@ -263,7 +271,7 @@ export function vaultErrorMessage(error) {
     return cleaned
   }
 
-  return 'Store failed. Open browser console (F12) and look for [ARKIVE Turbo] upload failed.'
+  return 'Couldn’t complete this action. Check your connection and retry.'
 }
 
 export function vaultErrorDetail(error) {

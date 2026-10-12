@@ -1,7 +1,7 @@
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '12mb',
+      sizeLimit: '14mb',
     },
   },
 }
@@ -21,6 +21,6 @@ export default async function handler(req, res) {
     await run(req, res)
   } catch (error) {
     console.error('[sponsor-feed] init failed', error)
-    res.status(500).json({ error: 'SPONSOR_INIT_FAILED', message: error?.message || String(error) })
+    res.status(503).json({ error: 'SPONSOR_INIT_FAILED' })
   }
 }

@@ -10,7 +10,7 @@ export function usePoints() {
     abi: PointsSystemABI.abi,
     functionName: 'getPoints',
     args: [address],
-    enabled: !!address,
+    query: { enabled: !!address },
   })
 
   const { data: dailyEarned } = useReadContract({
@@ -18,7 +18,7 @@ export function usePoints() {
     abi: PointsSystemABI.abi,
     functionName: 'getDailyEarned',
     args: [address],
-    enabled: !!address,
+    query: { enabled: !!address },
   })
 
   return {

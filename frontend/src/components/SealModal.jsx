@@ -42,7 +42,7 @@ export default function SealModal({ onClose, onSuccess }) {
     e.preventDefault()
     setDragging(false)
     const dropped = e.dataTransfer.files?.[0]
-    if (dropped) setFile(dropped)
+    if (dropped) handleFile(dropped)
   }
 
   function handleSealClick() {
@@ -79,7 +79,6 @@ export default function SealModal({ onClose, onSuccess }) {
     setLastError(null)
     try {
       toast('Encrypting locally — approve every MetaMask prompt (can take 1–2 min first time)', {
-        icon: '🔐',
         duration: 6000,
       })
       const stored = await storeFile(file)
@@ -99,7 +98,7 @@ export default function SealModal({ onClose, onSuccess }) {
       if (stored?.registrationSucceeded === false) {
         toast(
           'Remote upload succeeded. Blockchain registration failed — keep your recovery copy with the storage identifier.',
-          { icon: '⚠️', duration: 10000 },
+          { duration: 10000 },
         )
         setLastError(stored.registrationError || 'Blockchain registration failed — recovery copy still available.')
       } else {

@@ -24,3 +24,8 @@ export function createBoundedRateLimiter({ windowMs = 3600000, maxKeys = 10000, 
     return true
   }
 }
+
+/** Base64 expands file bytes by roughly a third, plus JSON metadata. */
+export function sponsorBodyLimit(maxBytes) {
+  return Math.ceil(maxBytes / 3) * 4 + 64 * 1024
+}

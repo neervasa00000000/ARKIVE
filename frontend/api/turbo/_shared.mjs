@@ -1,4 +1,4 @@
-import { loadSponsorKey, createBoundedRateLimiter } from '../../server/sponsorPolicy.mjs'
+import { loadSponsorKey, createBoundedRateLimiter, sponsorBodyLimit } from '../../server/sponsorPolicy.mjs'
 /**
  * Shared sponsor handlers for Vercel serverless (/api/turbo/*).
  */
@@ -90,7 +90,7 @@ export async function handleSponsorFeed(req, res) {
 
   try {
     const contentLength = Number(req.headers['content-length'] || 0)
-    if (contentLength > MAX_BYTES + 128 * 1024) {
+    if (contentLength > sponsorBodyLimit(MAX_BYTES)) {
       return sendJson(res, 413, { error: 'BODY_TOO_LARGE' }, origin)
     }
 

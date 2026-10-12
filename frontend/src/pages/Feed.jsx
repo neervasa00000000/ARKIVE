@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useReadContract, useWalletClient } from 'wagmi'
-import { Plus, FileText, Radio, ShieldCheck, Database } from 'lucide-react'
+import { useReadContract } from 'wagmi'
+import { Plus, FileText, RotateCw } from 'lucide-react'
 import { CONTRACT_ADDRESSES } from '../config/contracts'
 import PostRegistryABI from '../contracts/PostRegistry.json'
 import PostCard from '../components/PostCard'
@@ -8,23 +8,19 @@ import CreatePostModal from '../components/CreatePostModal'
 import PageHeader from '../components/PageHeader'
 import EmptyState from '../components/EmptyState'
 import { isDemoMode } from '../config/demo'
+import { useDemoWallet } from '../context/DemoWalletContext'
 import { DEMO_FEED_POSTS } from '../demo/demoFeed'
-import { warmTurboForWallet, prepareFeedUpload } from '../lib/turboUpload'
 import { mergeRecentPosts } from '../lib/feedPosts'
 
 const ZERO = '0x0000000000000000000000000000000000000000'
 
-function FeedContent({ posts, contractsReady, onPost, onLike, onOpenCreate }) {
+function FeedContent({ posts, contractsReady, onLike, onOpenCreate, loading, failed, retry, retrying }) {
   return (
-    <>
+    <div className="community-page">
       <PageHeader
         eyebrow="Public ledger"
         title="Community"
-        description={
-          isDemoMode
-            ? 'Demo posts — connect on Base Sepolia for the live feed.'
-            : 'Public posts use testnet storage. Do not post private information.'
-        }
+        description="Public posts. Keep private information in your vault."
         action={(
           <button
             type="button"
@@ -40,17 +36,20 @@ function FeedContent({ posts, contractsReady, onPost, onLike, onOpenCreate }) {
 
       {contractsReady === false && (
         <div className="callout callout-warn mb-8">
-          <p className="text-sm">Contracts not deployed yet. Deploy to Base Sepolia, then rebuild.</p>
+          <p className="text-sm">Community is not configured.</p>
         </div>
       )}
 
-      {posts.length === 0 ? (
+      {posts.length > 0 && retry && <div className="feed-refresh"><button type="button" className="btn-ghost btn-compact" disabled={retrying} onClick={() => retry()}><RotateCw size={14} />{retrying ? 'Refreshing…' : 'Refresh'}</button>{failed && <span role="status">Couldn’t refresh. Your loaded posts are still here.</span>}</div>}
+      {loading ? <div className="archive-loading" role="status">Loading posts…</div> : failed && posts.length === 0 ? (
+        <div className="callout callout-warn" role="alert"><div><strong>Couldn’t load posts.</strong><p>Check your connection and try again.</p></div><button type="button" className="btn-secondary" disabled={retrying} onClick={retry}><RotateCw size={16} /> Retry</button></div>
+      ) : posts.length === 0 ? (
         <EmptyState
           icon={FileText}
           title="Nothing here yet"
           description={isDemoMode ? 'Add a demo post to this session.' : 'Create a public test post.'}
           action={(
-            <button type="button" onClick={onOpenCreate} className="btn-primary btn-primary-sm">
+            <button type="button" onClick={onOpenCreate} disabled={contractsReady === false} className="btn-primary btn-primary-sm">
               <Plus size={17} />
               Create post
             </button>
@@ -63,26 +62,21 @@ function FeedContent({ posts, contractsReady, onPost, onLike, onOpenCreate }) {
               <PostCard key={post.id.toString()} post={post} onLike={onLike} />
             ))}
           </div>
-          <aside className="community-rail" aria-label="Community network information">
-            <div className="community-rail-head"><Radio size={16} /><span><strong>{isDemoMode ? 'Community preview' : 'Public signal'}</strong><small>{isDemoMode ? 'Sample posts' : 'Testnet community feed'}</small></span></div>
-            <div className="community-fact"><ShieldCheck size={15} /><span><strong>{isDemoMode ? 'Example authors' : 'Wallet-authored'}</strong><small>{isDemoMode ? 'No wallet transaction is sent' : 'Every post has a verifiable sender'}</small></span></div>
-            <div className="community-fact"><Database size={15} /><span><strong>{isDemoMode ? 'Example storage' : 'Arweave-backed'}</strong><small>{isDemoMode ? 'No live upload in demo mode' : 'Content resolves from its storage ID'}</small></span></div>
-            <p>Community posts are public. Keep personal and recovery information inside your encrypted vault.</p>
-          </aside>
+
         </div>
       )}
 
-    </>
+    </div>
   )
 }
 
 function DemoFeed() {
   const [showCreate, setShowCreate] = useState(false)
-  const [newPosts, setNewPosts] = useState([])
-  const posts = [...newPosts].reverse().concat([...DEMO_FEED_POSTS].reverse())
+  const { feedPosts: newPosts, addFeedPost } = useDemoWallet()
+  const posts = [...newPosts, ...DEMO_FEED_POSTS].sort((a, b) => Number(b.createdAt) - Number(a.createdAt))
 
   function handleDemoPost(result) {
-    if (result?.optimisticPost) setNewPosts((previous) => [...previous, result.optimisticPost])
+    if (result?.optimisticPost) addFeedPost(result.optimisticPost)
     setShowCreate(false)
   }
 
@@ -103,20 +97,14 @@ function DemoFeed() {
 function LiveFeed() {
   const [showCreate, setShowCreate] = useState(false)
   const [posts, setPosts] = useState([])
-  const { data: walletClient } = useWalletClient()
   const contractsReady = CONTRACT_ADDRESSES.PostRegistry !== ZERO
 
-  useEffect(() => {
-    if (!walletClient) return
-    warmTurboForWallet(walletClient)
-  }, [walletClient])
-
-  const { data: recentPosts, refetch } = useReadContract({
+  const { data: recentPosts, refetch, isPending, isError, isFetching } = useReadContract({
     address: CONTRACT_ADDRESSES.PostRegistry,
     abi: PostRegistryABI.abi,
     functionName: 'getRecentPosts',
     args: [BigInt(0), BigInt(50)],
-    query: { enabled: contractsReady },
+    query: { enabled: contractsReady, refetchInterval: 15_000, staleTime: 10_000 },
   })
 
   useEffect(() => {
@@ -141,6 +129,10 @@ function LiveFeed() {
       <FeedContent
         posts={posts}
         contractsReady={contractsReady}
+        loading={contractsReady && isPending}
+        failed={isError}
+        retry={refetch}
+        retrying={isFetching}
         onOpenCreate={() => setShowCreate(true)}
         onLike={refetch}
       />

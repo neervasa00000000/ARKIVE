@@ -211,7 +211,7 @@ export default function UploadModal({ onClose, onSuccess }) {
       } else {
         toast(
           'Remote upload succeeded. Blockchain registration failed — download your recovery copy.',
-          { icon: '⚠️', duration: 10000 },
+          { duration: 10000 },
         )
       }
 

@@ -1,347 +1,132 @@
 import { useState, useRef, useEffect } from 'react'
-import { Image, Type, Upload, Link2 } from 'lucide-react'
-import { useWalletClient } from 'wagmi'
+import { Image, Type, Upload, X, ArrowUpRight } from 'lucide-react'
 import { isDemoMode, DEMO_ADDRESS } from '../config/demo'
 import { validatePostText, validatePostImageDeep } from '../lib/security'
 import { usePosts } from '../hooks/usePosts'
 import { vaultErrorMessage } from '../lib/setupStatus'
-import { warmTurboForWallet, prepareFeedUpload, estimateBundleByteCount } from '../lib/turboUpload'
 import { optimizeImageFile } from '../lib/imageOptimize'
-import { hashBytes, findKnownUpload, rememberUpload } from '../lib/contentDedup'
-import { MetaMaskSignInlineNotice } from './SignExplainModal'
 import { Modal, ModalHeader, ModalBody, ModalFooter, ModalTabs } from './Modal'
 import Dropzone, { DropzoneIcon } from './Dropzone'
 import toast from 'react-hot-toast'
-
-function parseChainRegisterError(error) {
-  const code = error?.message || String(error)
-  if (!code.startsWith('CHAIN_REGISTER_FAILED:')) return null
-  const parts = code.split(':')
-  return {
-    arweaveId: parts[1],
-    contentType: parts[2] === 'text' || parts[2] === 'image' ? parts[2] : 'text',
-    message: parts.slice(3).join(':') || parts.slice(2).join(':'),
-  }
-}
 
 export default function CreatePostModal({ onClose, onSuccess }) {
   const [tab, setTab] = useState('text')
   const [text, setText] = useState('')
   const [image, setImage] = useState(null)
   const [preview, setPreview] = useState(null)
-  const [prep, setPrep] = useState(null)
-  const [prepStep, setPrepStep] = useState('')
-  const [pendingChain, setPendingChain] = useState(null)
-  const [submitError, setSubmitError] = useState('')
-  const [imageHash, setImageHash] = useState(null)
-  const [dedupArweaveId, setDedupArweaveId] = useState(null)
-  const [imageOptimizedNote, setImageOptimizedNote] = useState(null)
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [preparingImage, setPreparingImage] = useState(false)
+  const [retryPaid, setRetryPaid] = useState(false)
   const fileRef = useRef()
-  const { data: walletClient } = useWalletClient()
-  const { createPost, registerPostOnChain, loading, uploadStep, SignPromptModal } = usePosts()
-
-  const isStep2 = loading && uploadStep?.includes('Step 2')
+  const sending = useRef(false)
+  const imageRequest = useRef(0)
+  const { createPost, resumePost, retryPostUploadAfterPayment, pendingPost, loading, uploadStep, SignPromptModal } = usePosts()
+  const busy = submitting || loading || preparingImage
+  const pending = !isDemoMode && pendingPost
+  const canSend = pending || (tab === 'text' ? Boolean(text.trim()) : Boolean(image))
 
   useEffect(() => {
-    if (isDemoMode) return
-    if (!walletClient) {
-      setPrep(null)
-      setPrepStep('')
-      return
-    }
-    warmTurboForWallet(walletClient)
-    setPrep(null)
-    prepareFeedUpload(walletClient, setPrepStep)
-      .then(setPrep)
-      .catch(() => {})
-  }, [walletClient])
+    if (!image) { setPreview(null); return }
+    const url = URL.createObjectURL(image)
+    setPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [image])
+  useEffect(() => () => { imageRequest.current++ }, [])
 
-  async function handleImageSelect(e) {
-    const rawFile = e.target.files?.[0]
-    if (!rawFile) return
-
-    setDedupArweaveId(null)
-    setImageHash(null)
-    setImageOptimizedNote(null)
-
-    const { file, optimized, savedBytes } = await optimizeImageFile(rawFile)
-    setImage(file)
-    setPreview(URL.createObjectURL(file))
-    if (optimized) {
-      setImageOptimizedNote(`Stripped metadata — ${Math.max(1, Math.round(savedBytes / 1024))} KB smaller, pixels untouched`)
-    }
-
-    const address = walletClient?.account?.address
-    if (address) {
-      try {
-        const bytes = new Uint8Array(await file.arrayBuffer())
-        const hash = await hashBytes(bytes)
-        setImageHash(hash)
-        const known = findKnownUpload(address, hash)
-        if (known) setDedupArweaveId(known)
-      } catch {
-        /* dedup is a pure optimization — never block the upload flow on it */
-      }
-    }
-
-    if (walletClient) {
-      setPrep(null)
-      prepareFeedUpload(walletClient, setPrepStep, file.size)
-        .then(setPrep)
-        .catch(() => {})
-    }
-  }
-
-  async function handleRegisterOnChain() {
-    if (!pendingChain) return
-    setSubmitError('')
+  async function selectImage(file) {
+    if (!file || busy || pending) return
+    const request = ++imageRequest.current
+    setPreparingImage(true)
+    setError('')
     try {
-      const result = await registerPostOnChain(
-        pendingChain.arweaveId,
-        pendingChain.contentType,
-        tab === 'text' ? text.trim() : undefined,
-      )
-      toast.success('Testnet post confirmed')
-      setPendingChain(null)
-      onSuccess?.(result)
-    } catch (error) {
-      const message = vaultErrorMessage(error)
-      setSubmitError(message)
-      toast.error(message)
+      await validatePostImageDeep(file)
+      const result = await optimizeImageFile(file)
+      if (request === imageRequest.current) setImage(result.file)
+    } catch (cause) {
+      if (request === imageRequest.current) setError(vaultErrorMessage(cause))
+    } finally {
+      if (request === imageRequest.current) setPreparingImage(false)
     }
   }
 
-  async function handleSubmit() {
-    setSubmitError('')
-    if (tab === 'text' && !text.trim()) {
-      toast.error('Write something first')
-      return
-    }
-    if (tab === 'image' && !image) {
-      toast.error('Select an image')
-      return
-    }
-
-    setPendingChain(null)
+  async function send() {
+    if (sending.current || busy || !canSend) return
+    sending.current = true
+    setSubmitting(true)
+    setError('')
     try {
       if (isDemoMode) {
-        const isImage = tab === 'image'
-        if (isImage) await validatePostImageDeep(image)
-        const demoText = isImage ? undefined : validatePostText(text)
-        const demoId = `demo-feed-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-        onSuccess?.({
-          success: true,
-          optimisticPost: {
-            id: demoId,
-            author: DEMO_ADDRESS,
-            arweaveId: demoId,
-            contentType: isImage ? 'image' : 'text',
-            createdAt: BigInt(Math.floor(Date.now() / 1000)),
-            likes: 0n,
-            exists: true,
-            _demoImageUrl: isImage ? URL.createObjectURL(image) : undefined,
-            _optimisticText: demoText,
-          },
-        })
-        toast.success('Demo post added to this session')
+        const imagePost = tab === 'image'
+        if (imagePost) await validatePostImageDeep(image)
+        const id = `demo-feed-${crypto.randomUUID()}`
+        onSuccess?.({ optimisticPost: {
+          id, author: DEMO_ADDRESS, arweaveId: id,
+          contentType: imagePost ? 'image' : 'text',
+          createdAt: BigInt(Math.floor(Date.now() / 1000)), likes: 0n, exists: true,
+          _demoImageUrl: imagePost ? URL.createObjectURL(image) : undefined,
+          _optimisticText: imagePost ? undefined : validatePostText(text),
+        } })
+        toast.success('Demo post added')
         return
       }
-
-      if (tab === 'image' && dedupArweaveId) {
-        const result = await registerPostOnChain(dedupArweaveId, 'image', undefined)
-        toast.success('Already on Arweave — posted without a new upload')
-        onSuccess?.(result)
-        return
-      }
-
-      let preparedFunding = prep?.preparedFunding ?? null
-      if (walletClient) {
-        const rawBytes =
-          tab === 'image' && image
-            ? image.size
-            : new TextEncoder().encode(
-                JSON.stringify({ text: text.trim(), timestamp: Date.now() }),
-              ).length
-        const uploadBytes = estimateBundleByteCount(rawBytes)
-        try {
-          const freshPrep = await prepareFeedUpload(walletClient, setPrepStep, rawBytes)
-          preparedFunding = freshPrep?.preparedFunding ?? preparedFunding
-          setPrep(freshPrep)
-        } catch {
-          /* proceed with existing prep */
-        }
-        console.info('[ARKIVE] feed submit prep', { rawBytes, uploadBytes, hasPreparedFunding: Boolean(preparedFunding) })
-      }
-
-      const result = await createPost({
-        text: text.trim(),
-        image: tab === 'image' ? image : null,
-        preparedFunding,
-      })
-      const address = walletClient?.account?.address
-      if (tab === 'image' && imageHash && address && result?.arweaveId) {
-        rememberUpload(address, imageHash, result.arweaveId)
-      }
-      toast.success('Testnet post confirmed')
+      const payload = { text: text.trim(), image: tab === 'image' ? image : null }
+      const result = pending ? await resumePost() : retryPaid ? await retryPostUploadAfterPayment(payload) : await createPost(payload)
+      toast.success('Post published')
       onSuccess?.(result)
-    } catch (error) {
-      setPrepStep('')
-      const chainPending = parseChainRegisterError(error)
-      if (chainPending?.arweaveId) {
-        setPendingChain(chainPending)
-        const message = vaultErrorMessage(error)
-        setSubmitError(message)
-        toast.error(message, { duration: 8000 })
-      } else {
-        const message = vaultErrorMessage(error)
-        setSubmitError(message)
-        toast.error(message, { duration: 8000 })
-      }
+    } catch (cause) {
+      if (/TURBO_(UPLOAD_AFTER_PAYMENT|FUND_PENDING|CREDITS_TIMEOUT|TOPUP_TIMEOUT|UPLOAD_TIMEOUT)/.test(cause?.message || '')) setRetryPaid(true)
+      setError(vaultErrorMessage(cause))
+    } finally {
+      sending.current = false
+      setSubmitting(false)
     }
   }
 
-  return (
-    <>
-      {SignPromptModal}
-      <Modal onClose={onClose}>
-      <ModalHeader
-        title="Create post"
-        description={isDemoMode ? 'Add a sample post to this browser session.' : 'Public test post. Uploaded copies may remain accessible after posting.'}
-        onClose={onClose}
-      />
-
-      <ModalTabs
-        tabs={[
-          { id: 'text', label: 'Text', icon: Type },
-          { id: 'image', label: 'Image', icon: Image },
-        ]}
-        active={tab}
-        onChange={setTab}
-      />
-
+  return <>
+    {SignPromptModal}
+    <Modal onClose={busy ? undefined : onClose}>
+      <ModalHeader title={pending ? 'Finish your post' : 'New post'}
+        description={isDemoMode ? 'Demo · no upload or payment.' : 'Public · uploaded copies may remain accessible.'}
+        onClose={busy ? undefined : onClose} />
+      {!pending && <ModalTabs tabs={[{ id: 'text', label: 'Text', icon: Type }, { id: 'image', label: 'Image', icon: Image }]}
+        active={tab} onChange={(value) => { if (!busy) { setTab(value); setError('') } }} />}
       <ModalBody>
-        {tab === 'text' ? (
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Write a public test post"
-            maxLength={2000}
-            rows={5}
-            className="input-field resize-none min-h-[128px]"
-          />
-        ) : (
-          <div>
-            {preview ? (
-              <div className="relative rounded-xl overflow-hidden ring-1 ring-border">
-                <img src={preview} alt="Preview" className="w-full max-h-64 object-cover" />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setImage(null)
-                    setPreview(null)
-                    setImageHash(null)
-                    setDedupArweaveId(null)
-                    setImageOptimizedNote(null)
-                  }}
-                  className="absolute top-2 right-2 modal-close bg-black/50 hover:bg-black/70 text-white"
-                >
-                  ×
-                </button>
-              </div>
-            ) : (
-              <Dropzone filled={false} onClick={() => fileRef.current?.click()}>
-                <DropzoneIcon>
-                  <Upload size={20} />
-                </DropzoneIcon>
-                <p className="font-body text-text-primary text-sm">Click to select an image</p>
-                <p className="font-body text-text-muted text-xs">PNG, JPG, GIF · max 10 MB</p>
-              </Dropzone>
-            )}
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
-          </div>
-        )}
-
-        {!isDemoMode && tab === 'text' && prep?.skipEthPayment && (
-          <p className="font-body text-xs text-emerald-600 dark:text-emerald-400 mt-2">
-            Storage credits ready — signature only
-          </p>
-        )}
-
-        {!isDemoMode && tab === 'image' && dedupArweaveId && (
-          <p className="font-body text-xs text-emerald-600 dark:text-emerald-400 mt-2">
-            Identical file already on Arweave — this post won't pay for storage again
-          </p>
-        )}
-
-        {tab === 'image' && !dedupArweaveId && imageOptimizedNote && (
-          <p className="font-body text-xs text-text-muted mt-2">{imageOptimizedNote}</p>
-        )}
-
-        {!isDemoMode && isStep2 && (
-          <div className="callout mt-4 border-accent/30 bg-accent/5">
-            <p className="text-sm font-medium text-text-primary">Confirm post on blockchain</p>
-            <p className="text-xs text-text-muted mt-1">
-              Storage is done. Approve the transaction in MetaMask to publish on the feed.
-            </p>
-          </div>
-        )}
-
-        {!isDemoMode && pendingChain && (
-          <div className="callout callout-warn mt-4">
-            <p className="text-sm font-medium text-text-primary">On Arweave — not on feed yet</p>
-            <p className="text-xs text-text-muted mt-1 font-mono break-all">
-              {pendingChain.arweaveId}
-            </p>
-            <p className="text-xs text-text-muted mt-2">
-              {pendingChain.message || 'Complete the blockchain step to show this post on the feed.'}
-            </p>
-            <button
-              type="button"
-              onClick={handleRegisterOnChain}
-              disabled={loading}
-              className="btn-primary btn-primary-sm mt-3"
-            >
-              <Link2 size={15} />
-              Register on blockchain
-            </button>
-          </div>
-        )}
-
-        {submitError && <p role="alert" className="notice-inline border-red-500/20 bg-red-500/5 text-sm text-red-300 mt-4">{submitError}</p>}
-
-        <div className="mt-4">
-          {isDemoMode ? <p className="text-xs text-text-muted">Demo only. This post stays in this browser session; no wallet signature, upload, or transaction is sent.</p> : <MetaMaskSignInlineNotice />}
-          {!loading && prepStep && (
-            <p className="font-body text-xs text-text-muted mt-2">{prepStep}</p>
-          )}
-          {loading && uploadStep && !isStep2 && (
-            <p className="font-body text-xs text-text-muted mt-2">{uploadStep}</p>
-          )}
-        </div>
+        {pending ? <div className="pending-post">
+          {pending.text && <p className="post-text">{pending.text}</p>}
+          <p className="text-sm text-muted">{pending.txHash ? 'Transaction submitted. Check confirmation to finish.' : 'Upload complete. Approve the post in your wallet to finish.'}</p>
+          {pending.txHash && <a href={`https://sepolia.basescan.org/tx/${pending.txHash}`} target="_blank" rel="noopener noreferrer" className="text-link inline-flex items-center gap-1 mt-3">View transaction <ArrowUpRight size={14} /></a>}
+        </div> : tab === 'text' ? <div>
+          <label htmlFor="post-text" className="sr-only">Post text</label>
+          <textarea id="post-text" value={text} onChange={(event) => setText(event.target.value)}
+            disabled={busy} placeholder="Write a post…" maxLength={2000} rows={5}
+            aria-describedby={error ? 'post-error' : undefined}
+            className="input-field resize-none min-h-[140px]" />
+          <p className="composer-count">{text.length} / 2,000</p>
+        </div> : <div>
+          {preview ? <div className="relative overflow-hidden rounded">
+            <img src={preview} alt="Selected image" className="w-full max-h-64 object-contain" />
+            <button type="button" disabled={busy} onClick={() => { setImage(null); if (fileRef.current) fileRef.current.value = '' }}
+              aria-label="Remove image" className="absolute top-2 right-2 p-2 bg-surface border border-line rounded"><X size={16} /></button>
+          </div> : <Dropzone filled={false} onClick={() => { if (!busy) fileRef.current?.click() }}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => { event.preventDefault(); selectImage(event.dataTransfer.files?.[0]) }}>
+            <DropzoneIcon><Upload size={20} /></DropzoneIcon>
+            <p className="text-sm">Choose an image</p><p className="text-xs text-muted">PNG, JPG, WebP or GIF · 10 MB max</p>
+          </Dropzone>}
+          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden"
+            onChange={(event) => selectImage(event.target.files?.[0])} />
+        </div>}
+        {error && <p id="post-error" role="alert" className="composer-error">{pending?.txHash ? 'Confirmation is taking longer. Check again without resending.' : error}</p>}
+        {busy && <p role="status" className="composer-status"><span className="composer-spinner" />{preparingImage ? 'Preparing image…' : uploadStep || 'Preparing post…'}</p>}
+        {!busy && retryPaid && !pending && <p className="text-xs text-muted mt-3">Retry uses existing storage credits.</p>}
       </ModalBody>
-
       <ModalFooter>
-        <button type="button" onClick={onClose} className="btn-secondary">
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={loading}
-          className="btn-primary btn-primary-sm disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading
-            ? isStep2
-              ? 'Confirm on blockchain…'
-              : uploadStep?.toLowerCase().includes('metamask') ||
-                  uploadStep?.toLowerCase().includes('approve') ||
-                  uploadStep?.toLowerCase().includes('signature')
-                ? 'Approve in MetaMask…'
-                : 'Uploading…'
-            : isDemoMode ? 'Add demo post' : 'Publish test post'}
+        <button type="button" onClick={onClose} disabled={busy} className="btn-secondary">{pending ? 'Close' : 'Cancel'}</button>
+        <button type="button" onClick={send} disabled={busy || !canSend} className="btn-primary">
+          {busy ? 'Sending…' : pending?.txHash ? 'Check confirmation' : pending ? 'Finish posting' : retryPaid ? 'Retry upload' : isDemoMode ? 'Add demo post' : 'Publish'}
         </button>
       </ModalFooter>
     </Modal>
-    </>
-  )
+  </>
 }

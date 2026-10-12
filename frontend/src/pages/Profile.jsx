@@ -38,7 +38,7 @@ export default function Profile() {
     abi: UserRegistryABI.abi,
     functionName: 'getUser',
     args: [address],
-    enabled: !!address && !isDemoMode,
+    query: { enabled: !!address && !isDemoMode },
   })
 
   const { data: totalEarned } = useReadContract({
@@ -46,7 +46,7 @@ export default function Profile() {
     abi: PointsSystemABI.abi,
     functionName: 'totalEarned',
     args: [address],
-    enabled: !!address && !isDemoMode,
+    query: { enabled: !!address && !isDemoMode },
   })
 
   async function handleRegister() {
@@ -113,7 +113,7 @@ export default function Profile() {
       <PageHeader
         eyebrow="Identity and access"
         title="Settings"
-        description={isDemoMode ? 'Demo identity, recovery, and wallet preferences.' : 'Manage your on-chain identity, wallets, and recovery options.'}
+        description="Your identity and backup wallets."
       />
 
       <div className="settings-grid">
@@ -141,7 +141,7 @@ export default function Profile() {
                 </button>
               </div>
               <p className="text-faint text-xs mt-3">
-                Stored on Base. Lowercase letters, numbers, underscores only. 225 welcome points.
+                Letters, numbers and underscores. Saved on Base Sepolia.
               </p>
             </div>
           ) : (
@@ -149,7 +149,7 @@ export default function Profile() {
               <p className="text-faint text-xs mb-1 uppercase tracking-wider">Username</p>
               <p className="font-display text-xl font-semibold text-ink">@{displayUsername}</p>
               {isDemoMode && (
-                <p className="text-faint text-xs mt-2">Demo placeholder — not registered on-chain</p>
+                <p className="text-faint text-xs mt-2">Demo username</p>
               )}
             </div>
           )}

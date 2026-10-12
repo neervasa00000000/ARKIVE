@@ -7,6 +7,7 @@ const BACKUP_WARNING_KEY = 'arkive_demo_backup_acknowledged'
 
 export function DemoWalletProvider({ children }) {
   const [connected, setConnected] = useState(false)
+  const [feedPosts, setFeedPosts] = useState([])
 
   const connect = useCallback(async () => {
     await new Promise((r) => setTimeout(r, 600))
@@ -15,10 +16,13 @@ export function DemoWalletProvider({ children }) {
 
   const disconnect = useCallback(() => {
     setConnected(false)
+    setFeedPosts([])
   }, [])
 
   const value = {
     isDemoMode,
+    feedPosts,
+    addFeedPost: (post) => setFeedPosts((previous) => [...previous, post]),
     isConnected: connected,
     address: connected ? DEMO_ADDRESS : undefined,
     connect,

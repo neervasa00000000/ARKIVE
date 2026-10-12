@@ -4,7 +4,7 @@ import { Heart, ExternalLink } from 'lucide-react'
 import { PermanentDot } from './PermanentDot'
 import { usePosts } from '../hooks/usePosts'
 import { validateArweaveTxId } from '../lib/security'
-import { fetchArweaveContent } from '../lib/arweaveCache'
+import { fetchArweaveContent, arweaveGatewayUrls } from '../lib/arweaveCache'
 import { isDemoMode } from '../config/demo'
 import { DEMO_POST_CONTENT } from '../demo/demoFeed'
 import toast from 'react-hot-toast'
@@ -15,6 +15,9 @@ export default function PostCard({ post, onLike }) {
   const [content, setContent] = useState(null)
   const [loadState, setLoadState] = useState('idle')
   const [liking, setLiking] = useState(false)
+  const [retry, setRetry] = useState(0)
+  const [imageFailed, setImageFailed] = useState(false)
+  const [imageGateway, setImageGateway] = useState(0)
 
   const arweaveId = post.arweaveId
   const isImage = post.contentType === 'image'
@@ -30,10 +33,13 @@ export default function PostCard({ post, onLike }) {
   })()
 
   useEffect(() => {
+    setImageFailed(false)
+    setImageGateway(0)
     const submittedText = post._optimisticText
     if (submittedText) {
       setContent({ text: submittedText })
-      setLoadState(isDemoPost ? 'ok' : 'pending')
+      setLoadState(isDemoMode ? 'ok' : 'pending')
+      if (isDemoMode) return
     }
     if (isImage || !arweaveId) return
 
@@ -70,14 +76,14 @@ export default function PostCard({ post, onLike }) {
       .catch(() => { if (!cancelled) setLoadState('error') })
 
     return () => { cancelled = true }
-  }, [arweaveId, isImage, arweaveUrl, isDemoPost, post._optimisticText])
+  }, [arweaveId, isImage, arweaveUrl, isDemoPost, post._optimisticText, retry])
 
   async function handleLike() {
-    if (liking || isDemoPost) return
+    if (liking || isDemoPost || post._pending) return
     setLiking(true)
     try {
       await likePost(Number(post.id))
-      toast.success('+2 points to creator')
+      toast.success('Liked')
       onLike?.()
     } catch (error) {
       toast.error(error.message?.includes('Already liked') ? 'Already liked' : 'Like failed')
@@ -106,22 +112,29 @@ export default function PostCard({ post, onLike }) {
         <PermanentDot type="post" />
       </header>
 
-      {isImage && (arweaveUrl || post._demoImageUrl) ? (
+      {isImage && imageFailed ? (
+        <div className="post-unavailable"><span>Image unavailable.</span><button type="button" className="text-link" onClick={() => setRetry((value) => value + 1)}>Retry</button></div>
+      ) : isImage && (arweaveUrl || post._demoImageUrl) ? (
         <img
-          src={post._demoImageUrl || arweaveUrl}
+          key={retry}
+          src={post._demoImageUrl || arweaveGatewayUrls(arweaveId)[imageGateway]}
           alt=""
           className="w-full rounded-xl mb-4 object-cover max-h-80 ring-1 ring-white/5"
-          onError={(e) => { e.target.style.display = 'none' }}
+          onError={() => {
+            if (!post._demoImageUrl && imageGateway < arweaveGatewayUrls(arweaveId).length - 1) setImageGateway((value) => value + 1)
+            else setImageFailed(true)
+          }}
         />
       ) : (
-        <PostBody loadState={loadState} content={content} />
+        <PostBody loadState={loadState} content={content} onRetry={() => setRetry((value) => value + 1)} />
       )}
 
       <footer className="flex items-center justify-between pt-4 mt-4 border-t border-line">
         <button
           type="button"
           onClick={handleLike}
-          disabled={liking || isDemoPost || post.author.toLowerCase() === address?.toLowerCase()}
+          aria-label={isDemoPost ? 'Likes on this sample post' : 'Like post'}
+          disabled={liking || post._pending || isDemoMode || post.author.toLowerCase() === address?.toLowerCase()}
           className="flex items-center gap-2 text-muted hover:text-ink text-sm transition-colors disabled:opacity-30"
         >
           <Heart size={16} />
@@ -146,18 +159,10 @@ export default function PostCard({ post, onLike }) {
   )
 }
 
-function PostBody({ loadState, content }) {
-  if (loadState === 'loading' && !content?.text) {
-    return <p className="text-muted text-sm italic">Loading from Arweave…</p>
-  }
-  if (!content?.text) {
-    return (
-      <p className="text-amber-200/80 text-sm leading-relaxed">
-        Content unavailable on Arweave. Try creating a new post.
-      </p>
-    )
-  }
-  return <div><p className="text-ink text-[15px] leading-relaxed">{content.text}</p>{loadState !== 'ok' && <p className="text-xs text-amber-300 mt-2">Showing your submitted text; storage retrieval has not been confirmed yet.</p>}</div>
+function PostBody({ loadState, content, onRetry }) {
+  if (loadState === 'loading' && !content?.text) return <p role="status" className="text-muted text-sm">Loading post…</p>
+  if (!content?.text) return <div className="post-unavailable"><span>Post unavailable.</span><button type="button" className="text-link" onClick={onRetry}>Retry</button></div>
+  return <p className="post-text text-ink text-[15px] leading-relaxed">{content.text}</p>
 }
 
 function formatTimeAgo(timestamp) {

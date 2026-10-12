@@ -1,15 +1,17 @@
 import './index.css'
+import './archive.css'
 import '@rainbow-me/rainbowkit/styles.css'
 
 import React, { Suspense, lazy } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { WagmiProvider } from 'wagmi'
-import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit'
+import { RainbowKitProvider, lightTheme } from '@rainbow-me/rainbowkit'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 import { wagmiConfig } from './config/wagmi'
 import AppLoader from './components/AppLoader'
+import WalletAvatar from './components/WalletAvatar'
 import { DemoWalletProvider } from './context/DemoWalletContext'
 import { DemoVaultProvider } from './context/DemoVaultContext'
 import { assertDemoModeNotProduction, assertProductionSecrets } from './lib/security'
@@ -27,10 +29,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider
-          theme={darkTheme({
-            accentColor: '#fafafa',
-            accentColorForeground: '#050505',
-            borderRadius: 'large',
+          avatar={WalletAvatar}
+          theme={lightTheme({
+            accentColor: '#b63720',
+            accentColorForeground: '#ffffff',
+            borderRadius: 'small',
           })}
         >
           <DemoWalletProvider>

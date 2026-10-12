@@ -214,7 +214,7 @@ export default function MultiWalletManager({ currentAddress }) {
         (w) => normalizeEthAddress(w) === normalizeEthAddress(secAddress)
       )
       if (isLinked && contractsDeployed) {
-        toast('Unlinking wallet on Base Sepolia…', { icon: '⛓️' })
+        toast('Unlinking wallet on Base Sepolia…', {})
         await unlinkWallet(secAddress)
       }
       removeConfiguredWallet(resolvedPrimary, secAddress)
@@ -242,12 +242,12 @@ export default function MultiWalletManager({ currentAddress }) {
 
       if (activeNorm === secNorm) {
         // Active is secondary, request link to primary
-        toast('Submitting link request to primary wallet…', { icon: '⛓️' })
+        toast('Submitting link request to primary wallet…', {})
         await requestLink(resolvedPrimary)
         toast.success('Link requested! Now switch to your primary wallet to confirm.')
       } else if (activeNorm === resolvedPrimary) {
         // Active is primary, confirm link
-        toast('Confirming link for secondary wallet onchain…', { icon: '⛓️' })
+        toast('Confirming link for secondary wallet onchain…', {})
         await confirmLink(secNorm)
         toast.success('Wallet successfully linked onchain!')
       } else {
@@ -264,9 +264,9 @@ export default function MultiWalletManager({ currentAddress }) {
     <div className="panel settings-wallet p-5 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-faint text-xs uppercase tracking-wider">Wallets & Data Access</p>
+          <p className="text-faint text-xs uppercase tracking-wider">Wallets</p>
           <p className="text-muted text-xs mt-0.5">
-            Total 3 wallets can access your encrypted files, vaults, and identity.
+            Add up to two backup wallets. Authorise them for each file when storing.
           </p>
         </div>
         <span
@@ -318,7 +318,7 @@ export default function MultiWalletManager({ currentAddress }) {
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-faint">Wallet 1 · Master identity & vault key</p>
+              <p className="text-[11px] text-faint">Primary wallet</p>
             </div>
           </div>
           <button
@@ -358,7 +358,7 @@ export default function MultiWalletManager({ currentAddress }) {
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-faint">Wallet 2 · Authorized data access</p>
+                <p className="text-[11px] text-faint">Backup wallet</p>
               </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
@@ -443,7 +443,7 @@ export default function MultiWalletManager({ currentAddress }) {
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-faint">Wallet 3 · Authorized data access</p>
+                <p className="text-[11px] text-faint">Backup wallet</p>
               </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
@@ -537,7 +537,7 @@ export default function MultiWalletManager({ currentAddress }) {
 
           {showManualAdd && (
             <div className="p-3 rounded-lg bg-surface-2 border border-line space-y-2">
-              <label className="text-xs text-muted block">Add wallet address to access list</label>
+              <label className="text-xs text-muted block">Backup wallet address</label>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -561,7 +561,7 @@ export default function MultiWalletManager({ currentAddress }) {
       ) : (
         <p className="text-[11px] text-emerald-800 dark:text-emerald-400 flex items-center gap-1.5 pt-1">
           <Check size={14} className="shrink-0" />
-          Maximum 3 wallets configured. All 3 wallets can access your data.
+          All wallet slots are filled.
         </p>
       )}
     </div>
